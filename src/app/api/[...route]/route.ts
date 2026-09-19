@@ -13,7 +13,7 @@ import {
   rateLimit,
 } from '@/lib/auth';
 import { AppError, ensure } from '@/lib/errors';
-import { appUrl, sendEmail } from '@/lib/email';
+import { appUrl, sendEmail, checkEmailConfiguration } from '@/lib/email';
 import { punch, punchSchema } from '@/lib/clock';
 import { state, myHours, locate, info, managementOptions } from '@/lib/queries';
 import { has, requireRole, requireManagement } from '@/lib/permissions';
@@ -145,6 +145,7 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
       'Only an Owner can reset this account.',
       403,
     );
+    checkEmailConfiguration();
     const token = await issueToken(id, 'RESET_PASSWORD');
     await db.session.deleteMany({ where: { userId: id } });
     await sendEmail({
@@ -157,6 +158,7 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   }
   if (!get && path === 'desktop/email') {
     requireRole(actor, 'OWNER', 'PM', 'CONTROLLER');
+    checkEmailConfiguration();
     await rateLimit(`desktop:${actor.id}`, 4);
     const token = await issueToken(actor.id, 'DESKTOP');
     await sendEmail({

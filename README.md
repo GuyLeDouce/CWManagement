@@ -103,6 +103,14 @@ If a request still fails, logs include a request ID, processing stage, and safe 
 
 If a signed-in page briefly appears and then shows **We couldn’t load this page**, check manually entered timezone values. Use `America/Toronto` for Ontario staff. A database `NULL` or blank employee timezone inherits the company timezone; the literal text `NULL` is invalid. Leading/trailing spaces are normalized. Invalid values now display a timezone warning without hiding Admin, and time recording is blocked until they are corrected. The error screen also provides expandable **Error details** and a server reference when available.
 
+## Open on desktop and email setup
+
+**Open on desktop** emails a short-lived link to the signed-in account's email address. The same website already adapts to desktop screens; you can open its usual URL directly on your computer and sign in without this email shortcut.
+
+For delivery, the app service needs `EMAIL_PROVIDER=smtp`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, and any SMTP credentials required by your provider. `EMAIL_PROVIDER=console` is only for local development and does not send email in production. Use the sender and SMTP settings supplied by your provider, and apply/redeploy the app service after changing variables.
+
+Missing configuration now produces an on-screen email setup message. Deploy logs report safe codes such as `EMAIL_NOT_CONFIGURED`, `EMAIL_CONFIGURATION_INVALID`, `EMAIL_AUTH_FAILED`, `EMAIL_CONNECTION_FAILED`, `EMAIL_TLS_FAILED`, or `EMAIL_REJECTED`, without recording provider responses or secrets. Public password-reset requests retain their generic response to avoid revealing whether an account exists.
+
 ## Initial Admin setup
 
 1. Add **Accounting codes** and **Tasks**.
