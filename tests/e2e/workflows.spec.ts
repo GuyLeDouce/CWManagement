@@ -6,7 +6,7 @@ import { hashPassword, randomToken } from '../../src/lib/crypto';
 const db = new PrismaClient();
 const run = randomUUID().slice(0, 8),
   password = 'A-test-password-only-1234';
-let email: string, shop: string, truck: string, ownerEmail: string;
+let email: string, shop: string, truck: string, ownerEmail: string, employeeId: string;
 test.beforeAll(async () => {
   if (!process.env.DATABASE_URL || !new URL(process.env.DATABASE_URL).pathname.endsWith('_test'))
     throw new Error('Browser tests require a dedicated database ending in _test.');
@@ -22,6 +22,7 @@ test.beforeAll(async () => {
       passwordHash: await hashPassword(password),
     },
   });
+  employeeId = user.id;
   await db.user.create({
     data: {
       email: ownerEmail,
@@ -131,11 +132,15 @@ test('owner dashboard, admin permissions, and desktop layout', async ({ page }) 
   await page.getByRole('button', { name: 'Time & report settings', exact: true }).click();
   await expect(page.getByLabel('Company timezone')).toHaveValue('America/Toronto');
   await page.goto('/verify');
+  await page.getByRole('combobox', { name: 'Employee', exact: true }).selectOption(employeeId);
+  await expect(page.getByText('PENDING PM APPROVAL', { exact: true })).toHaveCount(1);
   await expect(page.getByText('PENDING PM APPROVAL', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Select all eligible', exact: true }).click();
   await page.getByRole('button', { name: 'Approve 1 selected', exact: true }).click();
   await expect(page.getByText('1 records approved.', { exact: true })).toBeVisible();
   await page.goto('/send');
+  await page.getByRole('combobox', { name: 'Employee', exact: true }).selectOption(employeeId);
+  await expect(page.getByText('PM APPROVED', { exact: true })).toHaveCount(1);
   await page.getByRole('combobox', { name: 'Sort accounting records' }).selectOption('jobsite');
   await page.getByRole('button', { name: 'Select all eligible', exact: true }).click();
   await page.getByRole('button', { name: 'Finalize 1 & create CSV', exact: true }).click();

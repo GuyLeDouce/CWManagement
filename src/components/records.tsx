@@ -147,7 +147,11 @@ function RecordWorkspace({
           </label>
           <label>
             Employee
-            <select value={filters.employee} onChange={(e) => change('employee', e.target.value)}>
+            <select
+              aria-label="Employee"
+              value={filters.employee}
+              onChange={(e) => change('employee', e.target.value)}
+            >
               <option value="">All employees</option>
               {options.employees.map((u) => (
                 <option key={u.id} value={u.id}>
