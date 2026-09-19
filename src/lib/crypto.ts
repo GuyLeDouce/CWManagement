@@ -21,8 +21,13 @@ export async function hashPassword(password: string) {
   return `scrypt:${salt}:${key.toString('hex')}`;
 }
 export async function verifyPassword(password: string, stored: string | null) {
-  const [, salt, expected] = (stored ?? 'scrypt:dummy-salt:' + '00'.repeat(64)).split(':');
+  const match =
+    typeof stored === 'string' ? /^scrypt:([0-9a-f]{32}):([0-9a-f]{128})$/.exec(stored) : null;
+  // Still perform the password derivation for missing or malformed credentials.
+  // A manually entered password is never treated as a valid stored hash.
+  const salt = match?.[1] ?? '0'.repeat(32);
+  const expected = match?.[2] ?? '0'.repeat(128);
   const key = (await scrypt(password, salt, 64)) as Buffer;
   const target = Buffer.from(expected, 'hex');
-  return target.length === key.length && timingSafeEqual(key, target) && stored !== null;
+  return timingSafeEqual(key, target) && match !== null;
 }

@@ -160,6 +160,29 @@ test('unauthenticated API access and cross-origin punches are rejected', async (
     ).status(),
   ).toBe(403);
 });
+test('malformed stored passwords return an ordinary login rejection', async ({ request }) => {
+  const brokenEmail = `broken-hash-${run}@example.test`;
+  const user = await db.user.create({
+    data: {
+      email: brokenEmail,
+      firstName: 'Recovery',
+      lastName: 'Test',
+      roles: ['OWNER'],
+      passwordHash: 'a-plain-password',
+    },
+  });
+  try {
+    const response = await request.post('/api/auth/login', {
+      headers: { Origin: 'http://localhost:3000' },
+      data: { email: brokenEmail, password: 'a-plain-password' },
+    });
+    expect(response.status()).toBe(401);
+    expect((await response.json()).error).toBe('Email or password is incorrect.');
+    expect(response.headers()['set-cookie']).toBeUndefined();
+  } finally {
+    await db.user.delete({ where: { id: user.id } });
+  }
+});
 test('PWA manifest, icon, and public offline page are available', async ({ request }) => {
   const manifest = await (await request.get('/manifest.webmanifest')).json();
   expect(manifest.display).toBe('standalone');

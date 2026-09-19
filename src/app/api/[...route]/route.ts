@@ -188,10 +188,13 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
 }
 async function handler(request: NextRequest, context: { params: Promise<{ route: string[] }> }) {
   const requestId = crypto.randomUUID();
+  let stage = 'request';
   try {
     let body: unknown;
     if (request.method !== 'GET') {
+      stage = 'origin-check';
       ensure(request.headers.get('origin') === appUrl(), 'Request origin is not allowed.', 403);
+      stage = 'request-body';
       ensure(
         request.headers.get('content-type')?.includes('application/json'),
         'JSON request required.',
@@ -210,6 +213,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ route:
         throw new AppError(400, 'Invalid JSON request.');
       }
     }
+    stage = 'dispatch';
     const result = await dispatch(request, (await context.params).route.join('/'), body);
     const response = result instanceof NextResponse ? result : NextResponse.json(result);
     response.headers.set('Cache-Control', 'private, no-store');
@@ -234,7 +238,17 @@ async function handler(request: NextRequest, context: { params: Promise<{ route:
     } else
       console.error('Request failed', {
         requestId,
+        stage,
         errorType: error instanceof Error ? error.name : 'Unknown',
+        // Codes distinguish URL/configuration errors from runtime failures without
+        // logging error messages that may contain credentials or request data.
+        errorCode:
+          error instanceof Error &&
+          'code' in error &&
+          typeof error.code === 'string' &&
+          /^(ERR_[A-Z_]+|P\d{4})$/.test(error.code)
+            ? error.code
+            : undefined,
       });
     return NextResponse.json(
       { error: message, requestId },

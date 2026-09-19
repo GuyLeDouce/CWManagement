@@ -18,6 +18,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:owner-reset": "tsx prisma/reset-owner.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "format": "prettier --write ."

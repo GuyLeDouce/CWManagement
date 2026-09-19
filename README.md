@@ -81,6 +81,26 @@ The Dockerfile sets `NODE_ENV=production`, listens on Railway’s injected `PORT
 
 Railway reference: [pre-deploy commands](https://docs.railway.com/deployments/pre-deploy-command) and [PostgreSQL](https://docs.railway.com/databases/postgresql).
 
+## Trouble signing in after deployment
+
+First check `APP_URL`: it must be the full public HTTPS origin you open in the browser (including `https://`, with no `/login` path). Keep the Start Command as `node server.js`; setup commands are one-time shell commands, not the web server.
+
+If setup reports `public.Settings does not exist`, run both commands **inside the same deployed app service**:
+
+```bash
+npm run db:migrate && npm run db:seed
+```
+
+If you manually created an Owner row or entered a normal password in `passwordHash`, the account needs a properly generated hash. Prefer **Forgot password** if email delivery is configured. Otherwise:
+
+1. In the app service variables, set `OWNER_EMAIL` to the existing active Owner's email and `OWNER_PASSWORD` to a new unique password of 12–128 characters. Also ensure `APP_SECRET` is configured. Apply the variables to the deployment.
+2. Connect to that app service with Railway SSH and run `npm run db:owner-reset` once.
+3. After `Owner password reset`, sign in with those credentials. Remove `OWNER_PASSWORD` from the service variables afterward.
+
+This operator command only resets an **existing active Owner**. It does not create users, grant roles, or overwrite other employee information. It revokes that owner's sessions and outstanding tokens, clears their login attempt limit, and records an audit entry without recording the password or hash. Rerunning `db:seed` never changes an existing account's password.
+
+If a request still fails, logs include a request ID, processing stage, and safe error code. For example, `ERR_INVALID_URL` at `origin-check` points to an invalid `APP_URL`. Do not share passwords, database URLs, or password hashes when requesting help.
+
 ## Initial Admin setup
 
 1. Add **Accounting codes** and **Tasks**.

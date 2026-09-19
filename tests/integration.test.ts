@@ -7,7 +7,8 @@ import { punch, punchSchema } from '../src/lib/clock';
 import { approveRecords, editRecord, closeForgottenDay } from '../src/lib/records';
 import { finalizeExport } from '../src/lib/reports';
 import { has, segmentScope, requireManagement } from '../src/lib/permissions';
-import { randomToken } from '../src/lib/crypto';
+import { randomToken, privateKey, verifyPassword } from '../src/lib/crypto';
+import { resetOwnerPassword } from '../prisma/owner-password';
 import { previousWeek } from '../src/lib/time';
 import { importCsv } from '../src/lib/imports';
 import { visit } from '../src/lib/visits';
@@ -15,6 +16,75 @@ import { adminSchema, saveAdmin } from '../src/lib/admin';
 import { transaction } from '../src/lib/db';
 import { resetPassword, issueToken } from '../src/lib/auth';
 const suffix = randomUUID().slice(0, 8);
+describe('operator owner password recovery', () => {
+  it('repairs a malformed hash and revokes only the recovered owner credentials', async () => {
+    const f = await fixture();
+    const password = 'recovered-test-password-12345';
+    await db.user.update({ where: { id: f.owner.id }, data: { passwordHash: 'plain-password' } });
+    for (const user of [f.owner, f.user]) {
+      await db.session.create({
+        data: {
+          userId: user.id,
+          tokenHash: randomToken(),
+          expiresAt: new Date(Date.now() + 100000),
+        },
+      });
+      await issueToken(user.id, 'RESET_PASSWORD');
+      await db.rateLimit.create({
+        data: {
+          key: privateKey(`login:${user.email}`),
+          count: 10,
+          resetsAt: new Date(Date.now() + 100000),
+        },
+      });
+    }
+    await resetOwnerPassword(db, ` ${f.owner.email.toUpperCase()} `, password);
+    const owner = await db.user.findUniqueOrThrow({ where: { id: f.owner.id } });
+    expect(await verifyPassword(password, owner.passwordHash)).toBe(true);
+    expect(owner.roles).toEqual(f.owner.roles);
+    expect(await db.session.count({ where: { userId: owner.id } })).toBe(0);
+    expect(await db.actionToken.count({ where: { userId: owner.id, usedAt: null } })).toBe(0);
+    expect(
+      await db.rateLimit.findUnique({ where: { key: privateKey(`login:${owner.email}`) } }),
+    ).toBeNull();
+    expect(await db.session.count({ where: { userId: f.user.id } })).toBe(1);
+    expect(await db.actionToken.count({ where: { userId: f.user.id, usedAt: null } })).toBe(1);
+    expect(
+      await db.rateLimit.findUnique({ where: { key: privateKey(`login:${f.user.email}`) } }),
+    ).not.toBeNull();
+    const audit = await db.auditLog.findFirstOrThrow({
+      where: { entityId: owner.id, action: 'OWNER_PASSWORD_RECOVERY' },
+    });
+    expect(audit.actorId).toBeNull();
+    expect(JSON.stringify(audit)).not.toContain(password);
+    expect(JSON.stringify(audit)).not.toContain(owner.passwordHash!);
+  });
+  it('refuses missing, inactive, and non-owner accounts without changing them', async () => {
+    const f = await fixture();
+    await db.user.update({ where: { id: f.owner.id }, data: { active: false } });
+    for (const email of [f.owner.email, f.user.email, `missing-${randomUUID()}@example.test`]) {
+      await expect(resetOwnerPassword(db, email, 'recovery-password-12345')).rejects.toThrow(
+        'existing active Owner',
+      );
+      await db.$disconnect();
+    }
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: f.owner.id } })).passwordHash,
+    ).toBeNull();
+    expect((await db.user.findUniqueOrThrow({ where: { id: f.user.id } })).passwordHash).toBeNull();
+  });
+  it('rejects invalid setup credentials before changing the owner', async () => {
+    const f = await fixture();
+    for (const password of ['', 'short', 'a'.repeat(129)])
+      await expect(resetOwnerPassword(db, f.owner.email, password)).rejects.toThrow('12–128');
+    await expect(resetOwnerPassword(db, 'not-an-email', 'recovery-password-12345')).rejects.toThrow(
+      'OWNER_EMAIL',
+    );
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: f.owner.id } })).passwordHash,
+    ).toBeNull();
+  });
+});
 let sequence = 0;
 beforeAll(async () => {
   if (!process.env.DATABASE_URL || !new URL(process.env.DATABASE_URL).pathname.endsWith('_test'))

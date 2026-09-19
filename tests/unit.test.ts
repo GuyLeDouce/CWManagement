@@ -117,6 +117,22 @@ describe('payroll precision and protected output', () => {
     expect(await verifyPassword('wrong', a)).toBe(false);
     expect(await verifyPassword('anything', null)).toBe(false);
   });
+  it.each([
+    '',
+    'a-plain-password',
+    'scrypt',
+    'scrypt:salt',
+    'scrypt:salt:hash',
+    `scrypt:${'a'.repeat(32)}:${'g'.repeat(128)}`,
+    `scrypt:${'a'.repeat(32)}:${'a'.repeat(126)}`,
+  ])('rejects malformed stored credentials without crashing (%#)', async (stored) => {
+    await expect(verifyPassword('test-password', stored)).resolves.toBe(false);
+  });
+  it('rejects a valid hash with a different algorithm or trailing data', async () => {
+    const hash = await hashPassword('test-password');
+    expect(await verifyPassword('test-password', hash.replace('scrypt:', 'other:'))).toBe(false);
+    expect(await verifyPassword('test-password', `${hash}:extra`)).toBe(false);
+  });
 });
 
 describe('correction and approval evidence', () => {
