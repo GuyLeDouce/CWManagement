@@ -101,6 +101,8 @@ This operator command only resets an **existing active Owner**. It does not crea
 
 If a request still fails, logs include a request ID, processing stage, and safe error code. For example, `ERR_INVALID_URL` at `origin-check` points to an invalid `APP_URL`. Do not share passwords, database URLs, or password hashes when requesting help.
 
+If a signed-in page briefly appears and then shows **We couldn’t load this page**, check manually entered timezone values. Use `America/Toronto` for Ontario staff. A database `NULL` or blank employee timezone inherits the company timezone; the literal text `NULL` is invalid. Leading/trailing spaces are normalized. Invalid values now display a timezone warning without hiding Admin, and time recording is blocked until they are corrected. The error screen also provides expandable **Error details** and a server reference when available.
+
 ## Initial Admin setup
 
 1. Add **Accounting codes** and **Tasks**.

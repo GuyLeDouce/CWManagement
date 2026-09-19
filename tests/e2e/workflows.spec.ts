@@ -19,6 +19,7 @@ test.beforeAll(async () => {
       lastName: 'Field',
       roles: ['SHOP', 'SITE', 'OFFICE'],
       earliestStart: '00:00',
+      timezone: ' ',
       passwordHash: await hashPassword(password),
     },
   });
@@ -159,6 +160,29 @@ test('unauthenticated API access and cross-origin punches are rejected', async (
       })
     ).status(),
   ).toBe(403);
+});
+test('an invalid saved timezone shows a warning and leaves Admin accessible', async ({ page }) => {
+  await db.user.update({
+    where: { email: ownerEmail },
+    data: { timezone: 'NULL', roles: ['OWNER', 'ADMIN', 'OFFICE'] },
+  });
+  try {
+    await page.goto('/login');
+    await page.getByLabel('Email address').fill(ownerEmail);
+    await page.getByLabel('Password', { exact: true }).fill(password);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(
+      page.getByText('A timezone setting needs attention.', { exact: false }),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'We couldn’t load this page.' })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Admin', exact: true }).first().click();
+    await expect(page.getByRole('heading', { name: 'A well-organized workday.' })).toBeVisible();
+  } finally {
+    await db.user.update({
+      where: { email: ownerEmail },
+      data: { timezone: null, roles: ['OWNER', 'ADMIN'] },
+    });
+  }
 });
 test('malformed stored passwords return an ordinary login rejection', async ({ request }) => {
   const brokenEmail = `broken-hash-${run}@example.test`;

@@ -15,7 +15,24 @@ import { visit } from '../src/lib/visits';
 import { adminSchema, saveAdmin } from '../src/lib/admin';
 import { transaction } from '../src/lib/db';
 import { resetPassword, issueToken } from '../src/lib/auth';
+import { state, myHours } from '../src/lib/queries';
 const suffix = randomUUID().slice(0, 8);
+describe('manually entered account timezones', () => {
+  it('uses the company timezone consistently for blank values and rejects invalid punches', async () => {
+    const f = await fixture();
+    const user = await db.user.update({ where: { id: f.user.id }, data: { timezone: '  ' } });
+    expect((await state(user)).timezone).toBe('America/Toronto');
+    expect((await myHours(user)).timezone).toBe('America/Toronto');
+    await punch(user, input(f));
+    const segment = await current(f);
+    const day = await db.workDay.findUniqueOrThrow({ where: { id: segment.workDayId } });
+    expect(day.timezone).toBe('America/Toronto');
+    await punch(user, input(f, { action: 'CLOCK_OUT', expectedSegmentId: segment.id }));
+    await db.user.update({ where: { id: user.id }, data: { timezone: 'NULL' } });
+    await expect(punch(user, input(f))).rejects.toThrow('timezone setting needs attention');
+    expect(await db.workDay.count({ where: { userId: user.id, endedAt: null } })).toBe(0);
+  });
+});
 describe('operator owner password recovery', () => {
   it('repairs a malformed hash and revokes only the recovered owner credentials', async () => {
     const f = await fixture();

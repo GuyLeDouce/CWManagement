@@ -2,7 +2,15 @@ import { DateTime } from 'luxon';
 import { db } from './db';
 import { Actor, has, modes, requireManagement, segmentScope } from './permissions';
 import { companySettings, segmentInclude } from './clock';
-import { clippedMs, hours, previousWeek, dateRange, hasCurrentApproval } from './time';
+import {
+  clippedMs,
+  hours,
+  previousWeek,
+  dateRange,
+  hasCurrentApproval,
+  normalizeZone,
+  validZone,
+} from './time';
 import { ensure } from './errors';
 export async function state(actor: Actor, token?: string) {
   const [settings, current, jobs, tasks, qr] = await Promise.all([
@@ -39,7 +47,7 @@ export async function state(actor: Actor, token?: string) {
     jobs,
     tasks,
     qr,
-    timezone: actor.timezone ?? settings.timezone,
+    timezone: normalizeZone(actor.timezone, settings.timezone),
     companyTimezone: settings.timezone,
     serverNow: new Date().toISOString(),
   };
@@ -47,7 +55,11 @@ export async function state(actor: Actor, token?: string) {
 export async function myHours(actor: Actor) {
   const settings = await companySettings(),
     now = new Date();
-  const zone = actor.timezone ?? settings.timezone;
+  const zone = normalizeZone(actor.timezone, settings.timezone);
+  ensure(
+    validZone(zone) && validZone(settings.timezone),
+    'A timezone setting needs attention. Ask an administrator to correct it before viewing hours.',
+  );
   const today = DateTime.fromJSDate(now, { zone }).startOf('day').toJSDate(),
     tomorrow = DateTime.fromJSDate(today, { zone }).plus({ days: 1 }).toJSDate();
   const week = previousWeek(now, settings.timezone);

@@ -1,8 +1,18 @@
 import { DateTime } from 'luxon';
 import { ensure } from './errors';
 export const DEFAULT_ZONE = 'America/Toronto';
+export function normalizeZone(zone: string | null | undefined, fallback = DEFAULT_ZONE) {
+  return zone?.trim() || fallback.trim() || DEFAULT_ZONE;
+}
 export function validZone(zone: string) {
-  return DateTime.now().setZone(zone).isValid;
+  if (!zone || !DateTime.now().setZone(zone).isValid) return false;
+  try {
+    // Luxon also accepts values such as UTC-04:00 that browser date rendering rejects.
+    new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format();
+    return true;
+  } catch {
+    return false;
+  }
 }
 export function paidStart(actual: Date, earliest: string, zone: string): Date {
   ensure(

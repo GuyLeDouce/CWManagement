@@ -25,6 +25,7 @@ export const userFields = z.object({
     .default('07:00'),
   timezone: z
     .string()
+    .trim()
     .refine((v) => !v || validZone(v))
     .nullable()
     .optional(),
@@ -77,7 +78,7 @@ export const adminSchema = z.discriminatedUnion('entity', [
   z.object({
     entity: z.literal('settings'),
     data: z.object({
-      timezone: z.string().refine(validZone),
+      timezone: z.string().trim().refine(validZone),
       reportRecipient: z.union([z.email(), z.literal('')]),
       weekStartsOn: z.literal(1).default(1),
     }),

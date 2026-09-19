@@ -11,7 +11,8 @@ import {
   QrCode,
   Truck,
 } from 'lucide-react';
-import { api, time, duration, pretty } from '@/lib/client';
+import { api, time, duration, pretty, dayHeading } from '@/lib/client';
+import { validZone } from '@/lib/time';
 import type { State } from '@/lib/client-types';
 import { ErrorBox, Success, Badge } from './ui';
 export function ClockScreen({
@@ -71,7 +72,9 @@ export function ClockScreen({
   const needsTask = current
     ? arrival || effectiveMode === 'SHOP' || (effectiveMode === 'SITE' && !travelSwitch)
     : mode === 'SHOP';
+  const timezoneValid = validZone(data.timezone) && validZone(data.companyTimezone);
   const canSubmit =
+    timezoneValid &&
     !!job &&
     (!needsTask || !!task) &&
     !!token &&
@@ -171,18 +174,18 @@ export function ClockScreen({
   return (
     <div className="clock-wrap">
       <div className="page-heading">
-        <span className="eyebrow">
-          {new Intl.DateTimeFormat('en-CA', {
-            timeZone: data.timezone,
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-          }).format(new Date(data.serverNow))}
-        </span>
+        <span className="eyebrow">{dayHeading(data.serverNow, data.timezone)}</span>
         <h1>{current ? 'Your day is underway.' : `Good morning, ${data.user.firstName}.`}</h1>
         <p>{current ? 'Keep it simple. One job at a time.' : 'Let’s get your day started.'}</p>
       </div>
       <ErrorBox message={error} />
+      <ErrorBox
+        message={
+          timezoneValid
+            ? ''
+            : 'A timezone setting needs attention. Ask an administrator to correct the employee or company timezone in Admin.'
+        }
+      />
       <Success message={success} />
       {current && (
         <section className="current-card">

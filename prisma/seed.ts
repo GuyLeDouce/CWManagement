@@ -10,7 +10,7 @@ async function main() {
     throw new Error(
       'Set OWNER_EMAIL and a unique OWNER_PASSWORD of at least 12 characters before seeding.',
     );
-  const timezone = process.env.APP_TIMEZONE ?? 'America/Toronto';
+  const timezone = process.env.APP_TIMEZONE?.trim() || 'America/Toronto';
   if (!validZone(timezone)) throw new Error('Invalid APP_TIMEZONE.');
   await db.settings.upsert({
     where: { id: 'company' },

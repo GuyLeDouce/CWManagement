@@ -46,22 +46,28 @@ export function useApi<T>(path: string, refreshMs = 0) {
   }, [refresh, refreshMs]);
   return { data, error, loading, refresh };
 }
+function formatDate(
+  value: string | null | undefined,
+  zone: string,
+  options: Intl.DateTimeFormatOptions,
+) {
+  if (!value) return '—';
+  const instant = new Date(value);
+  if (!Number.isFinite(instant.getTime())) return 'Time unavailable';
+  try {
+    return new Intl.DateTimeFormat('en-CA', { ...options, timeZone: zone }).format(instant);
+  } catch {
+    return 'Timezone needs attention';
+  }
+}
 export function time(value: string | null | undefined, zone = 'America/Toronto') {
-  return value
-    ? new Intl.DateTimeFormat('en-CA', {
-        timeZone: zone,
-        hour: 'numeric',
-        minute: '2-digit',
-      }).format(new Date(value))
-    : '—';
+  return formatDate(value, zone, { hour: 'numeric', minute: '2-digit' });
 }
 export function date(value: string, zone = 'America/Toronto') {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: zone,
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(value));
+  return formatDate(value, zone, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+export function dayHeading(value: string, zone: string) {
+  return formatDate(value, zone, { weekday: 'long', month: 'long', day: 'numeric' });
 }
 export function duration(start: string, end?: string | null) {
   return (Math.max(0, +(end ? new Date(end) : new Date()) - +new Date(start)) / 3600000).toFixed(2);

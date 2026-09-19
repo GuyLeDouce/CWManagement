@@ -4,7 +4,15 @@ import { db, transaction, databaseNow, lockUsers, audit, json, Tx } from './db';
 import { digest } from './crypto';
 import { allowedSelection, Actor, has } from './permissions';
 import { ensure } from './errors';
-import { paidStart, dateKey, nextType, splitAtMidnights, DEFAULT_ZONE } from './time';
+import {
+  paidStart,
+  dateKey,
+  nextType,
+  splitAtMidnights,
+  DEFAULT_ZONE,
+  normalizeZone,
+  validZone,
+} from './time';
 export const punchSchema = z
   .object({
     key: z.string().uuid(),
@@ -31,14 +39,13 @@ export const segmentInclude = {
   },
 } satisfies Prisma.TimeSegmentInclude;
 export async function companySettings(tx: Tx = db) {
-  return (
-    (await tx.settings.findUnique({ where: { id: 'company' } })) ?? {
-      id: 'company',
-      timezone: process.env.APP_TIMEZONE ?? DEFAULT_ZONE,
-      reportRecipient: '',
-      weekStartsOn: 1,
-    }
-  );
+  const settings = (await tx.settings.findUnique({ where: { id: 'company' } })) ?? {
+    id: 'company',
+    timezone: process.env.APP_TIMEZONE ?? DEFAULT_ZONE,
+    reportRecipient: '',
+    weekStartsOn: 1,
+  };
+  return { ...settings, timezone: normalizeZone(settings.timezone) };
 }
 export async function suggestCode(tx: Tx, jobsiteId: string, taskId?: string | null) {
   const mappings = await tx.accountingMapping.findMany({
@@ -125,7 +132,11 @@ export async function punch(user: Actor, input: Punch) {
     );
     const now = await databaseNow(tx);
     const settings = await companySettings(tx);
-    const zone = actor.timezone ?? settings.timezone;
+    const zone = normalizeZone(actor.timezone, settings.timezone);
+    ensure(
+      validZone(zone) && validZone(settings.timezone),
+      'A timezone setting needs attention. Ask an administrator to correct it before recording time.',
+    );
     const current = await tx.timeSegment.findFirst({
       where: { userId: actor.id, end: null },
       include: { workDay: true, jobsite: true },

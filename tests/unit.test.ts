@@ -10,12 +10,33 @@ import {
   clippedMs,
   hours,
   dateRange,
+  normalizeZone,
+  validZone,
 } from '../src/lib/time';
+import { date, time, dayHeading } from '../src/lib/client';
 import { hashPassword, verifyPassword } from '../src/lib/crypto';
 import { csvCell } from '../src/lib/reports';
 import { modes } from '../src/lib/permissions';
 const d = (v: string) => new Date(v);
 describe('paid time and Toronto calendar boundaries', () => {
+  it('treats blank employee timezones as the company timezone and trims saved values', () => {
+    for (const value of [null, undefined, '', '   '])
+      expect(normalizeZone(value, 'America/Vancouver')).toBe('America/Vancouver');
+    expect(normalizeZone(' America/Toronto ', 'America/Vancouver')).toBe('America/Toronto');
+    expect(normalizeZone('NULL')).toBe('NULL');
+  });
+  it('only accepts timezones supported by payroll calculations and browser rendering', () => {
+    expect(validZone('America/Toronto')).toBe(true);
+    expect(validZone('UTC')).toBe(true);
+    for (const value of ['', 'NULL', 'UTC-04:00', 'local', 'No/SuchZone'])
+      expect(validZone(value)).toBe(false);
+  });
+  it('keeps invalid display settings from crashing the workspace', () => {
+    for (const format of [date, time, dayHeading]) {
+      expect(format('2026-09-19T14:30:00Z', 'NULL')).toBe('Timezone needs attention');
+      expect(format('not-a-date', 'America/Toronto')).toBe('Time unavailable');
+    }
+  });
   it('preserves a 06:43 scan while paying from 07:00', () => {
     const actual = d('2026-09-14T10:43:00Z');
     expect(paidStart(actual, '07:00', 'America/Toronto').toISOString()).toBe(
