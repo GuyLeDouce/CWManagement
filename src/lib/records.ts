@@ -6,6 +6,7 @@ import { Actor, canApprove, allowedSelection } from './permissions';
 import { ensure } from './errors';
 import { companySettings } from './clock';
 import { dateKey, previousWeek } from './time';
+import { publishProjectEvent } from './activity';
 export const editSchema = z
   .object({
     id: z.string(),
@@ -201,7 +202,16 @@ export async function approveRecords(actor: Actor, input: z.infer<typeof approva
       await tx.approval.create({
         data: { segmentId: record.id, approverId: actor.id, segmentVersion: approved.version },
       });
-      await audit(tx, actor.id, 'PM_APPROVED', 'TimeSegment', record.id, record, approved);
+      await publishProjectEvent(tx, {
+        projectId: record.jobsiteId,
+        actorId: actor.id,
+        action: 'TIME_APPROVED',
+        entity: 'TimeSegment',
+        entityId: record.id,
+        description: 'approved an employee time entry',
+        before: record,
+        after: approved,
+      });
     }
     return { ok: true, count: records.length };
   });

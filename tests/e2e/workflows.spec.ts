@@ -124,9 +124,9 @@ test('owner dashboard, admin permissions, and desktop layout', async ({ page }) 
   await page.getByLabel('Email address').fill(ownerEmail);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Good morning, Nelson.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   await page.screenshot({ path: 'test-results/owner-dashboard.png', fullPage: true });
-  await page.getByRole('link', { name: 'Admin', exact: true }).first().click();
+  await page.getByRole('link', { name: 'Settings', exact: true }).first().click();
   await expect(page.getByRole('heading', { name: 'A well-organized workday.' })).toBeVisible();
   await page.getByRole('button', { name: 'QR codes', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Create QR code', exact: true })).toBeVisible();
@@ -171,11 +171,11 @@ test('an invalid saved timezone shows a warning and leaves Admin accessible', as
     await page.getByLabel('Email address').fill(ownerEmail);
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(
-      page.getByText('A timezone setting needs attention.', { exact: false }),
-    ).toBeVisible();
+    await page.getByRole('button', { name: 'Open My Hours' }).click();
+    await expect(page.getByText('A timezone setting needs attention.', { exact: false })).toBeVisible();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'We couldn’t load this page.' })).toHaveCount(0);
-    await page.getByRole('link', { name: 'Admin', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).first().click();
     await expect(page.getByRole('heading', { name: 'A well-organized workday.' })).toBeVisible();
   } finally {
     await db.user.update({

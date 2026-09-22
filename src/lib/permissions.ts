@@ -10,16 +10,16 @@ export function requireRole(user: Actor, ...roles: Role[]) {
 }
 const roleCapabilities: Partial<Record<Role, Capability[]>> = {
   OWNER: Object.values(Capability),
-  ADMIN: ['PROJECT_VIEW_ALL', 'PROJECT_CREATE', 'PROJECT_EDIT', 'CONTACT_MANAGE', 'SETTINGS_MANAGE'],
-  CONTROLLER: ['PROJECT_VIEW_ALL', 'PROJECT_FINANCIALS_VIEW', 'PROJECT_FINANCIALS_EDIT', 'TIME_EDIT', 'ACCOUNTING_ACCESS'],
-  PM: ['PROJECT_VIEW_ASSIGNED', 'PROJECT_CREATE', 'PROJECT_EDIT', 'TIME_APPROVE'],
-  PROJECT_MANAGER: ['PROJECT_VIEW_ASSIGNED', 'PROJECT_CREATE', 'PROJECT_EDIT', 'TIME_APPROVE'],
+  ADMIN: ['PROJECT_VIEW_ALL', 'PROJECT_CREATE', 'PROJECT_EDIT', 'PROJECT_ASSIGN', 'PROJECT_CONTACT_MANAGE', 'PROJECT_SCHEDULE_EDIT', 'DAILY_LOG_CREATE', 'DAILY_LOG_EDIT', 'FILE_UPLOAD', 'FILE_VIEW_INTERNAL', 'CONTACT_MANAGE', 'NOTIFICATION_MANAGE', 'SETTINGS_MANAGE'],
+  CONTROLLER: ['PROJECT_VIEW_ALL', 'PROJECT_EDIT', 'PROJECT_ASSIGN', 'PROJECT_CONTACT_MANAGE', 'PROJECT_SCHEDULE_EDIT', 'DAILY_LOG_CREATE', 'DAILY_LOG_EDIT', 'FILE_UPLOAD', 'FILE_VIEW_INTERNAL', 'PROJECT_FINANCIALS_VIEW', 'PROJECT_FINANCIALS_EDIT', 'TIME_EDIT', 'ACCOUNTING_ACCESS', 'NOTIFICATION_MANAGE'],
+  PM: ['PROJECT_VIEW_ASSIGNED', 'PROJECT_CREATE', 'PROJECT_EDIT', 'PROJECT_ASSIGN', 'PROJECT_CONTACT_MANAGE', 'PROJECT_SCHEDULE_EDIT', 'DAILY_LOG_CREATE', 'DAILY_LOG_EDIT', 'FILE_UPLOAD', 'FILE_VIEW_INTERNAL', 'TIME_APPROVE', 'NOTIFICATION_MANAGE'],
+  PROJECT_MANAGER: ['PROJECT_VIEW_ASSIGNED', 'PROJECT_CREATE', 'PROJECT_EDIT', 'PROJECT_ASSIGN', 'PROJECT_CONTACT_MANAGE', 'PROJECT_SCHEDULE_EDIT', 'DAILY_LOG_CREATE', 'DAILY_LOG_EDIT', 'FILE_UPLOAD', 'FILE_VIEW_INTERNAL', 'TIME_APPROVE', 'NOTIFICATION_MANAGE'],
   ESTIMATOR: ['PROJECT_VIEW_ASSIGNED', 'PROJECT_FINANCIALS_VIEW', 'ESTIMATE_CREATE'],
-  DESIGNER: ['PROJECT_VIEW_ASSIGNED'],
-  OFFICE: ['PROJECT_VIEW_ALL', 'CONTACT_MANAGE'],
+  DESIGNER: ['PROJECT_VIEW_ASSIGNED', 'DAILY_LOG_CREATE', 'FILE_UPLOAD', 'FILE_VIEW_INTERNAL'],
+  OFFICE: ['PROJECT_VIEW_ALL', 'PROJECT_EDIT', 'PROJECT_CONTACT_MANAGE', 'PROJECT_SCHEDULE_EDIT', 'DAILY_LOG_CREATE', 'DAILY_LOG_EDIT', 'FILE_UPLOAD', 'FILE_VIEW_INTERNAL', 'CONTACT_MANAGE', 'NOTIFICATION_MANAGE'],
   SHOP: ['PROJECT_VIEW_ASSIGNED', 'TIME_CLOCK'],
   SITE: ['PROJECT_VIEW_ASSIGNED', 'TIME_CLOCK'],
-  FIELD: ['PROJECT_VIEW_ASSIGNED', 'TIME_CLOCK'],
+  FIELD: ['PROJECT_VIEW_ASSIGNED', 'DAILY_LOG_CREATE', 'FILE_UPLOAD', 'FILE_VIEW_INTERNAL', 'TIME_CLOCK'],
   CLIENT: ['CLIENT_PORTAL_ACCESS'],
   SUBTRADE: ['PROJECT_VIEW_ASSIGNED'],
   VENDOR: ['PROJECT_VIEW_ASSIGNED'],
@@ -42,6 +42,22 @@ export async function capabilities(user: Actor, tx: Tx = db) {
     const override = overrides.find((item) => item.capability === capability);
     return override?.granted ?? roleGrants(user, capability);
   });
+}
+export async function projectScope(user: Actor, tx: Tx = db): Promise<Prisma.ProjectWhereInput> {
+  if (await can(user, 'PROJECT_VIEW_ALL', tx)) return {};
+  await requireCapability(user, 'PROJECT_VIEW_ASSIGNED', tx);
+  return {
+    OR: [
+      { assignments: { some: { userId: user.id } } },
+      { employees: { some: { userId: user.id } } },
+      { managers: { some: { pmId: user.id } } },
+    ],
+  };
+}
+export async function requireProjectAccess(user: Actor, projectId: string, tx: Tx = db) {
+  const project = await tx.project.findFirst({ where: { id: projectId, ...(await projectScope(user, tx)) } });
+  ensure(project, 'Project not found or unavailable.', 404);
+  return project;
 }
 export function modes(user: Pick<User, 'roles'>) {
   return user.roles.filter((r) => ['SHOP', 'SITE', 'OFFICE'].includes(r));
@@ -82,8 +98,8 @@ export function segmentScope(user: Actor): Prisma.TimeSegmentWhereInput {
   return { userId: user.id };
 }
 export async function canApprove(tx: Tx, user: Actor, employeeId: string, jobsiteId: string) {
-  requireRole(user, 'OWNER', 'PM');
-  if (has(user, 'OWNER')) return;
+  await requireCapability(user, 'TIME_APPROVE', tx);
+  if (await can(user, 'PROJECT_VIEW_ALL', tx)) return;
   const [employee, job] = await Promise.all([
     tx.pmEmployee.findUnique({ where: { pmId_employeeId: { pmId: user.id, employeeId } } }),
     tx.pmJobsite.findUnique({ where: { pmId_jobsiteId: { pmId: user.id, jobsiteId } } }),

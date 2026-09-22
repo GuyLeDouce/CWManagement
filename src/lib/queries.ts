@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { db } from './db';
-import { Actor, has, modes, requireManagement, segmentScope } from './permissions';
+import { Actor, capabilities, has, modes, requireManagement, segmentScope } from './permissions';
 import { companySettings, segmentInclude } from './clock';
 import {
   clippedMs,
@@ -13,7 +13,7 @@ import {
 } from './time';
 import { ensure } from './errors';
 export async function state(actor: Actor, token?: string) {
-  const [settings, current, jobs, tasks, qr] = await Promise.all([
+  const [settings, current, jobs, tasks, qr, grantedCapabilities] = await Promise.all([
     companySettings(),
     db.timeSegment.findFirst({ where: { userId: actor.id, end: null }, include: segmentInclude }),
     db.project.findMany({
@@ -31,6 +31,7 @@ export async function state(actor: Actor, token?: string) {
           select: { id: true, label: true, type: true, truckId: true },
         })
       : null,
+    capabilities(actor),
   ]);
   if (token) ensure(qr, 'This QR code has been revoked or is not available.', 404);
   return {
@@ -50,6 +51,7 @@ export async function state(actor: Actor, token?: string) {
     timezone: normalizeZone(actor.timezone, settings.timezone),
     companyTimezone: settings.timezone,
     serverNow: new Date().toISOString(),
+    capabilities: grantedCapabilities,
   };
 }
 export async function myHours(actor: Actor) {

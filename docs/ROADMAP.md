@@ -4,9 +4,9 @@
 
 Branding and scalable shell; project/contact/company model; flexible assignments; role-derived capabilities and overrides; project list/workspace; live dashboard; retained QR/mobile time capture and PM approval; additive migration; architecture documentation.
 
-## Phase 2 — Project operations
+## Phase 2 — Project operations (implemented)
 
-Schedule, daily logs, tasks, files, photos, project messages/activity, notification inbox, and granular assignment administration. Complete the physical `Jobsite` to `Project` model rename after all legacy time routes use project terminology.
+Meaningful project activity, project settings/relationships, Schedule V1 with dependencies and assignees, mobile daily logs, file/photo metadata and development storage, notification inbox, expanded capabilities, isolated PostgreSQL CI, and hierarchical cost-code foundation. Durable production object storage and automated due-date notification delivery remain follow-up deployment work.
 
 ## Phase 3 — Estimating and budget
 

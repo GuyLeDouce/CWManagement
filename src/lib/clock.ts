@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { Prisma, Role, TimeSegment } from '@prisma/client';
 import { db, transaction, databaseNow, lockUsers, audit, json, Tx } from './db';
 import { digest } from './crypto';
-import { allowedSelection, Actor, has } from './permissions';
+import { allowedSelection, Actor, has, requireCapability } from './permissions';
 import { ensure } from './errors';
 import {
   paidStart,
@@ -107,6 +107,7 @@ async function closeSegment(tx: Tx, current: TimeSegment, actualEnd: Date, zone:
   return effectiveEnd;
 }
 export async function punch(user: Actor, input: Punch) {
+  await requireCapability(user, 'TIME_CLOCK');
   return transaction(async (tx) => {
     await lockUsers(tx, [user.id]);
     const requestHash = digest(JSON.stringify(input));

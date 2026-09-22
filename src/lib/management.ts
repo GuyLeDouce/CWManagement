@@ -1,7 +1,8 @@
 import { ProjectAssignmentRole, ProjectContactRole, ProjectStatus, ContactType } from '@prisma/client';
 import { z } from 'zod';
 import { audit, db, transaction } from './db';
-import { Actor, can, capabilities, requireCapability } from './permissions';
+import { publishProjectEvent } from './activity';
+import { Actor, can, capabilities, projectScope, requireCapability, requireProjectAccess } from './permissions';
 import { ensure } from './errors';
 
 const optionalText = z.string().trim().max(4000).optional().nullable().transform((v) => v || null);
@@ -47,12 +48,6 @@ export const contactSchema = z.object({
   types: z.array(z.enum(ContactType)).min(1),
 }).strict();
 
-async function projectScope(actor: Actor) {
-  if (await can(actor, 'PROJECT_VIEW_ALL')) return {};
-  await requireCapability(actor, 'PROJECT_VIEW_ASSIGNED');
-  return { OR: [{ assignments: { some: { userId: actor.id } } }, { employees: { some: { userId: actor.id } } }, { managers: { some: { pmId: actor.id } } }] };
-}
-
 export async function managementState(actor: Actor) {
   return { capabilities: await capabilities(actor) };
 }
@@ -67,7 +62,7 @@ export async function dashboard(actor: Actor) {
     db.timeSegment.count({ where: { end: null } }),
     db.timeSegment.count({ where: { status: 'PENDING_PM_APPROVAL', ...((await can(actor, 'TIME_APPROVE')) ? {} : { userId: actor.id }) } }),
     db.project.findMany({ where: { ...scope, archivedAt: null, targetCompletion: { gte: now, lte: inThirtyDays } }, select: { id: true, number: true, name: true, targetCompletion: true }, orderBy: { targetCompletion: 'asc' }, take: 6 }),
-    db.auditLog.findMany({ where: { entity: { in: ['Project', 'Jobsite'] } }, orderBy: { createdAt: 'desc' }, take: 8, include: { actor: { select: { firstName: true, lastName: true } } } }),
+    db.auditLog.findMany({ where: { projectId: { not: null }, description: { not: null }, project: { is: scope } }, orderBy: { createdAt: 'desc' }, take: 8, include: { actor: { select: { firstName: true, lastName: true } }, project: { select: { id:true,name:true } } } }),
   ]);
   return { activeProjects, byStage, clockedIn, pendingApprovals, upcoming, activity };
 }
@@ -82,7 +77,7 @@ export async function projects(actor: Actor, query = '', status?: ProjectStatus,
 }
 
 export async function project(actor: Actor, id: string) {
-  const item = await db.project.findFirst({ where: { id, ...(await projectScope(actor)) }, include: { contacts: { include: { contact: { include: { company: true } } } }, assignments: { include: { user: { select: { id: true, firstName: true, lastName: true } } } }, segments: { select: { effectiveStart: true, end: true }, orderBy: { effectiveStart: 'desc' }, take: 100 }, _count: { select: { segments: true } } } });
+  const item = await db.project.findFirst({ where: { id, ...(await projectScope(actor)) }, include: { contacts: { include: { contact: { include: { company: true } } } }, assignments: { include: { user: { select: { id: true, firstName: true, lastName: true } } } }, segments: { select: { effectiveStart: true, end: true }, orderBy: { effectiveStart: 'desc' }, take: 100 }, scheduleTasks: { where: { archivedAt: null }, include: { assignees: { include: { user: { select: { firstName:true,lastName:true } }, contact: { select: { firstName:true,lastName:true } } } } }, orderBy: [{ startDate: 'asc' }, { sortOrder: 'asc' }], take: 8 }, dailyLogs: { include: { author: { select: { firstName:true,lastName:true } } }, orderBy: { date: 'desc' }, take: 5 }, files: { where: { archivedAt: null, kind: 'PHOTO' }, select: { id:true,originalFilename:true,caption:true,uploadedAt:true }, orderBy: { uploadedAt: 'desc' }, take: 6 }, activity: { where: { description: { not: null } }, include: { actor: { select: { firstName:true,lastName:true } } }, orderBy: { createdAt: 'desc' }, take: 10 }, _count: { select: { segments: true, scheduleTasks: true, dailyLogs: true, files: true } } } });
   ensure(item, 'Project not found.', 404);
   return item;
 }
@@ -90,12 +85,20 @@ export async function project(actor: Actor, id: string) {
 export async function saveProject(actor: Actor, input: z.infer<typeof projectSchema>) {
   await requireCapability(actor, input.id ? 'PROJECT_EDIT' : 'PROJECT_CREATE');
   return transaction(async (tx) => {
+    if (input.id) await requireProjectAccess(actor, input.id, tx);
     const before = input.id ? await tx.project.findUnique({ where: { id: input.id } }) : null;
     const { id, assignmentUserId, assignmentRole, contactId, contactRole, ...data } = input;
     const saved = id ? await tx.project.update({ where: { id }, data }) : await tx.project.create({ data: { ...data, active: true } });
     if (assignmentUserId && assignmentRole) await tx.projectAssignment.upsert({ where: { projectId_userId_role: { projectId: saved.id, userId: assignmentUserId, role: assignmentRole } }, update: {}, create: { projectId: saved.id, userId: assignmentUserId, role: assignmentRole, primary: assignmentRole === 'PRIMARY_PROJECT_MANAGER' } });
     if (contactId && contactRole) await tx.projectContact.upsert({ where: { projectId_contactId_role: { projectId: saved.id, contactId, role: contactRole } }, update: {}, create: { projectId: saved.id, contactId, role: contactRole, primary: contactRole === 'CLIENT' } });
-    await audit(tx, actor.id, before ? 'PROJECT_UPDATED' : 'PROJECT_CREATED', 'Project', saved.id, before, saved);
+    if (!before) await publishProjectEvent(tx, { projectId: saved.id, actorId: actor.id, action: 'PROJECT_CREATED', entity: 'Project', entityId: saved.id, description: `created project ${saved.number} · ${saved.name}`, after: saved });
+    else {
+      const changes = ['number','name','projectType','status','stage','description','address','municipality','province','postalCode','startDate','targetCompletion','actualCompletion','internalNotes','clientVisibleNotes']
+        .filter((key) => JSON.stringify(before[key as keyof typeof before]) !== JSON.stringify(saved[key as keyof typeof saved]));
+      const statusChanged = before.status !== saved.status, stageChanged = before.stage !== saved.stage;
+      const description = statusChanged ? `changed project status from ${before.status.toLowerCase().replaceAll('_',' ')} to ${saved.status.toLowerCase().replaceAll('_',' ')}` : stageChanged ? `changed project stage from ${before.stage || 'not set'} to ${saved.stage || 'not set'}` : `updated project settings (${changes.join(', ') || 'no material fields'})`;
+      await publishProjectEvent(tx, { projectId: saved.id, actorId: actor.id, action: statusChanged ? 'PROJECT_STATUS_CHANGED' : stageChanged ? 'PROJECT_STAGE_CHANGED' : 'PROJECT_UPDATED', entity: 'Project', entityId: saved.id, description, before, after: saved, metadata: { changedFields: changes } });
+    }
     return saved;
   });
 }
@@ -106,7 +109,7 @@ export async function contacts(actor: Actor, query = '') {
 }
 
 export async function saveContact(actor: Actor, input: z.infer<typeof contactSchema>) {
-  await requireCapability(actor, 'CONTACT_MANAGE');
+  ensure(await can(actor, 'CONTACT_MANAGE') || await can(actor, 'PROJECT_CONTACT_MANAGE'), 'You do not have permission to do this.', 403);
   return transaction(async (tx) => {
     const before = input.id ? await tx.contact.findUnique({ where: { id: input.id } }) : null;
     const { id, companyName, ...fields } = input;
@@ -118,10 +121,11 @@ export async function saveContact(actor: Actor, input: z.infer<typeof contactSch
 }
 
 export async function managementOptionsV1(actor: Actor) {
+  const canUseContacts = await can(actor, 'CONTACT_MANAGE') || await can(actor, 'PROJECT_CONTACT_MANAGE') || await can(actor, 'PROJECT_SCHEDULE_EDIT');
   const [users, contactItems, companies] = await Promise.all([
     db.user.findMany({ where: { active: true }, select: { id: true, firstName: true, lastName: true, roles: true }, orderBy: [{ lastName: 'asc' }] }),
-    can(actor, 'CONTACT_MANAGE').then((allowed) => allowed ? db.contact.findMany({ where: { active: true }, select: { id: true, firstName: true, lastName: true }, orderBy: [{ lastName: 'asc' }] }) : []),
-    can(actor, 'CONTACT_MANAGE').then((allowed) => allowed ? db.company.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }) : []),
+    canUseContacts ? db.contact.findMany({ where: { active: true }, select: { id: true, firstName: true, lastName: true }, orderBy: [{ lastName: 'asc' }] }) : [],
+    canUseContacts ? db.company.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }) : [],
   ]);
   return { users, contacts: contactItems, companies };
 }

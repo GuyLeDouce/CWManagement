@@ -16,7 +16,7 @@ import { AppError, ensure } from '@/lib/errors';
 import { appUrl, sendEmail, checkEmailConfiguration } from '@/lib/email';
 import { punch, punchSchema } from '@/lib/clock';
 import { state, myHours, locate, info, managementOptions } from '@/lib/queries';
-import { has, requireRole, requireManagement } from '@/lib/permissions';
+import { can, has, requireCapability, requireManagement } from '@/lib/permissions';
 import {
   editRecord,
   editSchema,
@@ -42,6 +42,26 @@ import {
   saveContact,
   saveProject,
 } from '@/lib/management';
+import {
+  actOnProjectTask,
+  archiveFile,
+  assignmentSchema,
+  dailyLogSchema,
+  dailyLogs,
+  files,
+  fileActionSchema,
+  notifications,
+  projectActivity,
+  projectContactSchema,
+  projectTaskSchema,
+  saveAssignment,
+  saveDailyLog,
+  saveProjectContact,
+  saveProjectTask,
+  schedule,
+  taskActionSchema,
+  updateNotifications,
+} from '@/lib/operations';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const credentials = z
@@ -83,6 +103,11 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
     return { projects: await projects(actor, params.q, params.status ? z.enum(ProjectStatus).parse(params.status) : undefined, params.archived === 'true') };
   if (get && path === 'management/project') return { project: await project(actor, z.string().min(1).parse(params.id)) };
   if (get && path === 'management/contacts') return { contacts: await contacts(actor, params.q) };
+  if (get && path === 'management/activity') return { activity: await projectActivity(actor, z.string().min(1).parse(params.projectId)) };
+  if (get && path === 'management/schedule') return { tasks: await schedule(actor, z.string().min(1).parse(params.projectId)) };
+  if (get && path === 'management/daily-logs') return { logs: await dailyLogs(actor, z.string().min(1).parse(params.projectId)) };
+  if (get && path === 'management/files') return { files: await files(actor, z.string().min(1).parse(params.projectId), params.kind ? z.enum(['DOCUMENT', 'PHOTO']).parse(params.kind) : undefined) };
+  if (get && path === 'notifications') return { notifications: await notifications(actor) };
   if (get && path === 'hours') return myHours(actor);
   if (get && path === 'locate') return locate(actor);
   if (get && path === 'options') return managementOptions(actor);
@@ -122,7 +147,7 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
     });
   }
   if (get && path === 'admin/template') {
-    requireRole(actor, 'OWNER', 'ADMIN');
+    await requireCapability(actor, 'SETTINGS_MANAGE');
     ensure(params.entity in templates, 'Unknown template.');
     return new NextResponse(template(params.entity as keyof typeof templates), {
       headers: {
@@ -132,7 +157,7 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
     });
   }
   if (get && path === 'admin/qr-image') {
-    requireRole(actor, 'OWNER', 'ADMIN');
+    await requireCapability(actor, 'SETTINGS_MANAGE');
     const qr = await db.qrCode.findFirst({ where: { id: params.id, active: true } });
     ensure(qr, 'QR code not available.', 404);
     return new NextResponse(
@@ -144,6 +169,13 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   if (!get && path === 'punch') return punch(actor, punchSchema.parse(body));
   if (!get && path === 'management/projects') return saveProject(actor, projectSchema.parse(body));
   if (!get && path === 'management/contacts') return saveContact(actor, contactSchema.parse(body));
+  if (!get && path === 'management/assignments') return saveAssignment(actor, assignmentSchema.parse(body));
+  if (!get && path === 'management/project-contacts') return saveProjectContact(actor, projectContactSchema.parse(body));
+  if (!get && path === 'management/schedule') return saveProjectTask(actor, projectTaskSchema.parse(body));
+  if (!get && path === 'management/schedule/action') return actOnProjectTask(actor, taskActionSchema.parse(body));
+  if (!get && path === 'management/daily-logs') return saveDailyLog(actor, dailyLogSchema.parse(body));
+  if (!get && path === 'management/files/action') return archiveFile(actor, fileActionSchema.parse(body));
+  if (!get && path === 'notifications') return updateNotifications(actor, z.object({ id: z.string().optional(), all: z.boolean().optional(), unread: z.boolean().optional() }).strict().parse(body));
   if (!get && path === 'records/close-day')
     return closeForgottenDay(actor, closeDaySchema.parse(body));
   if (!get && path === 'records/edit') return editRecord(actor, editSchema.parse(body));
@@ -157,7 +189,7 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   if (!get && path === 'admin/import') return importCsv(actor, importSchema.parse(body));
   if (!get && path === 'visits') return visit(actor, visitSchema.parse(body));
   if (!get && path === 'admin/password-reset') {
-    requireRole(actor, 'OWNER', 'ADMIN');
+    await requireCapability(actor, 'SETTINGS_MANAGE');
     const { id } = z.object({ id: z.string() }).parse(body);
     const target = await db.user.findUnique({ where: { id } });
     ensure(target?.active, 'Active employee not found.', 404);
@@ -178,7 +210,7 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
     return { ok: true, message: 'Password email sent; existing sessions revoked.' };
   }
   if (!get && path === 'desktop/email') {
-    requireRole(actor, 'OWNER', 'PM', 'CONTROLLER');
+    ensure(await can(actor, 'TIME_APPROVE') || await can(actor, 'ACCOUNTING_ACCESS'), 'You do not have permission to do this.', 403);
     checkEmailConfiguration();
     await rateLimit(`desktop:${actor.id}`, 4);
     const token = await issueToken(actor.id, 'DESKTOP');
@@ -190,7 +222,7 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
     return { ok: true, message: 'A desktop link has been emailed to you.' };
   }
   if (!get && path === 'desktop/open') {
-    requireRole(actor, 'OWNER', 'PM', 'CONTROLLER');
+    ensure(await can(actor, 'TIME_APPROVE') || await can(actor, 'ACCOUNTING_ACCESS'), 'You do not have permission to do this.', 403);
     const { token } = z.object({ token: z.string().min(32).max(100) }).parse(body);
     await transaction(async (tx) => {
       const item = await tx.actionToken.findUnique({ where: { tokenHash: digest(token) } });

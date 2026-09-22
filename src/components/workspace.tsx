@@ -21,6 +21,7 @@ import {
   ContactRound,
   BarChart3,
   UserRoundSearch,
+  Bell,
 } from 'lucide-react';
 import { useApi, api } from '@/lib/client';
 import type { State } from '@/lib/client-types';
@@ -34,6 +35,7 @@ import { AdminScreen } from './admin';
 import { VisitsScreen } from './visits';
 import { ErrorBox, Loading, ActionButton, Modal } from './ui';
 import { ContactsScreen, DashboardScreen, PlaceholderScreen, ProjectsScreen, ProjectScreen } from './management';
+import { NotificationScreen } from './notifications';
 const items = [
   { view: '', label: 'Dashboard', icon: LayoutDashboard },
   { view: 'leads', label: 'Leads', icon: UserRoundSearch },
@@ -43,6 +45,7 @@ const items = [
   { view: 'time', label: 'Time', icon: Clock3 },
   { view: 'contacts', label: 'Contacts', icon: ContactRound },
   { view: 'reports', label: 'Reports', icon: BarChart3 },
+  { view: 'notifications', label: 'Notifications', icon: Bell },
   { view: 'locate', label: 'Locate', icon: MapPin },
   { view: 'verify', label: 'Verify', icon: CheckCheck },
   { view: 'info', label: 'Info', icon: ChartNoAxesColumn },
@@ -60,18 +63,20 @@ export function Workspace({ path }: { path: string[] }) {
     [menu, setMenu] = useState(false),
     [install, setInstall] = useState(false);
   const has = (...roles: string[]) => data?.user.roles.some((r) => roles.includes(r)) ?? false;
-  const managementUser = has('OWNER', 'ADMIN', 'PM', 'PROJECT_MANAGER', 'CONTROLLER', 'OFFICE', 'ESTIMATOR', 'DESIGNER');
+  const cap = (...capabilities: string[]) => data?.capabilities.some((item) => capabilities.includes(item)) ?? false;
+  const managementUser = cap('PROJECT_VIEW_ALL', 'PROJECT_VIEW_ASSIGNED');
   const controllerLocked = has('CONTROLLER') && !has('OWNER', 'PM') && !data?.current;
   const visible = items.filter(
     (i) =>
       (['', 'leads', 'projects', 'schedule', 'time', 'reports'].includes(i.view) && managementUser) ||
-      (i.view === 'financials' && has('OWNER', 'CONTROLLER')) ||
-      (i.view === 'contacts' && has('OWNER', 'ADMIN', 'OFFICE')) ||
-      (i.view === 'locate' && has('OWNER', 'PM', 'CONTROLLER')) ||
-      (i.view === 'verify' && has('OWNER', 'PM')) ||
-      (['info', 'send'].includes(i.view) && has('OWNER', 'CONTROLLER')) ||
-      (i.view === 'visits' && has('OWNER')) ||
-      (i.view === 'admin' && has('OWNER', 'ADMIN')),
+      i.view === 'notifications' ||
+      (i.view === 'financials' && cap('PROJECT_FINANCIALS_VIEW')) ||
+      (i.view === 'contacts' && cap('CONTACT_MANAGE')) ||
+      (i.view === 'locate' && cap('TIME_APPROVE', 'ACCOUNTING_ACCESS')) ||
+      (i.view === 'verify' && cap('TIME_APPROVE')) ||
+      (['info', 'send'].includes(i.view) && cap('ACCOUNTING_ACCESS')) ||
+      (i.view === 'visits' && cap('DAILY_LOG_CREATE')) ||
+      (i.view === 'admin' && cap('SETTINGS_MANAGE')),
   );
   if (!managementUser) visible.unshift({ view: 'time', label: 'Time', icon: Clock3 });
   const management = visible.length > 1;
@@ -148,7 +153,7 @@ export function Workspace({ path }: { path: string[] }) {
           </aside>
         )}
         <main className="workspace-main">
-          {has('OWNER', 'PM', 'CONTROLLER') && (
+          {cap('TIME_APPROVE', 'ACCOUNTING_ACCESS') && (
             <div className="desktop-link">
               <ActionButton className="text-button" action={() => api('desktop/email', {})}>
                 <Monitor size={17} /> OPEN ON DESKTOP
@@ -173,11 +178,13 @@ export function Workspace({ path }: { path: string[] }) {
           ) : view === '' && managementUser && !token ? (
             <DashboardScreen />
           ) : view === 'projects' && path[1] ? (
-            <ProjectScreen id={path[1]} />
+            <ProjectScreen id={path[1]} tab={path[2]} />
           ) : view === 'projects' ? (
             <ProjectsScreen />
           ) : view === 'contacts' ? (
             <ContactsScreen />
+          ) : view === 'notifications' ? (
+            <NotificationScreen />
           ) : ['leads', 'schedule', 'financials', 'reports'].includes(view) ? (
             <PlaceholderScreen title={visible.find((item) => item.view === view)?.label ?? 'Module'} />
           ) : view === 'locate' ? (

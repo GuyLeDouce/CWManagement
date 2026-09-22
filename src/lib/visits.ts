@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { db, transaction, lockUsers, databaseNow, audit } from './db';
-import { Actor, requireRole } from './permissions';
+import { Actor, requireCapability, requireProjectAccess } from './permissions';
 import { ensure } from './errors';
 export async function visits(actor: Actor) {
-  requireRole(actor, 'OWNER');
+  await requireCapability(actor, 'DAILY_LOG_CREATE');
   return {
     visits: await db.siteVisit.findMany({
       include: { jobsite: true, user: { select: { firstName: true, lastName: true } } },
@@ -24,7 +24,7 @@ export const visitSchema = z
   })
   .strict();
 export async function visit(actor: Actor, input: z.infer<typeof visitSchema>) {
-  requireRole(actor, 'OWNER');
+  await requireCapability(actor, 'DAILY_LOG_CREATE');
   return transaction(async (tx) => {
     await lockUsers(tx, [actor.id]);
     const now = await databaseNow(tx);
@@ -32,12 +32,8 @@ export async function visit(actor: Actor, input: z.infer<typeof visitSchema>) {
     if (input.action === 'START') {
       ensure(!current, 'End your current visit first.');
       ensure(input.jobsiteId, 'Select a project.');
-      ensure(
-        await tx.project.findFirst({
-          where: { id: input.jobsiteId, active: true, overhead: false },
-        }),
-        'Project is not available.',
-      );
+      const project = await requireProjectAccess(actor, input.jobsiteId, tx);
+      ensure(project.active && !project.overhead, 'Project is not available.');
       const result = await tx.siteVisit.create({
         data: { userId: actor.id, jobsiteId: input.jobsiteId, start: now, notes: input.notes },
       });

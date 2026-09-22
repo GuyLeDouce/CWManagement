@@ -2,7 +2,7 @@ import { parse } from 'csv-parse/sync';
 import { z } from 'zod';
 import { db, transaction, audit } from './db';
 import { adminSchema, saveAdmin, AdminInput } from './admin';
-import { Actor, requireRole } from './permissions';
+import { Actor, requireCapability } from './permissions';
 import { ensure, AppError } from './errors';
 import { privateKey } from './crypto';
 import { csv } from './reports';
@@ -33,7 +33,7 @@ export function template(entity: keyof typeof templates) {
   return csv(templates[entity]);
 }
 export async function importCsv(actor: Actor, input: z.infer<typeof importSchema>) {
-  requireRole(actor, 'OWNER', 'ADMIN');
+  await requireCapability(actor, 'SETTINGS_MANAGE');
   let rows: Record<string, string>[];
   try {
     rows = parse(input.csv, {

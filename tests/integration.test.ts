@@ -16,7 +16,27 @@ import { adminSchema, saveAdmin } from '../src/lib/admin';
 import { transaction } from '../src/lib/db';
 import { resetPassword, issueToken } from '../src/lib/auth';
 import { state, myHours } from '../src/lib/queries';
+import { saveAssignment, saveDailyLog, saveProjectTask } from '../src/lib/operations';
 const suffix = randomUUID().slice(0, 8);
+describe('project operations', () => {
+  it('publishes project activity and targeted notifications for assignments and schedule work', async () => {
+    const f = await fixture();
+    await saveAssignment(f.owner, { action: 'add', projectId: f.job.id, userId: f.user.id, role: 'FIELD_STAFF', primary: false });
+    const task = await saveProjectTask(f.owner, { projectId: f.job.id, name: 'Frame second floor walls', status: 'READY', startDate: null, endDate: null, actualStartDate: null, actualEndDate: null, milestone: false, sortOrder: 10, userIds: [f.user.id], contactIds: [], predecessorId: null, dependencyType: 'FINISH_TO_START', lagDays: 0, description: null });
+    await saveDailyLog(f.owner, { projectId: f.job.id, date: new Date('2026-09-22T12:00:00Z'), workCompleted: 'Framing progressed.', siteConditions: null, weatherNotes: null, manpowerNotes: null, delaysIssues: null, deliveries: null, visitors: null, inspections: null, generalNotes: null, clientVisible: false });
+    expect(await db.auditLog.count({ where: { projectId: f.job.id, description: { not: null } } })).toBeGreaterThanOrEqual(3);
+    expect(await db.notification.count({ where: { userId: f.user.id, projectId: f.job.id } })).toBeGreaterThanOrEqual(2);
+    expect(await db.projectTaskAssignee.count({ where: { taskId: task.id, userId: f.user.id } })).toBe(1);
+  });
+
+  it('prevents cyclic schedule dependencies', async () => {
+    const f = await fixture();
+    const base = { projectId: f.job.id, status: 'NOT_STARTED' as const, startDate: null, endDate: null, actualStartDate: null, actualEndDate: null, milestone: false, sortOrder: 0, userIds: [], contactIds: [], predecessorId: null, dependencyType: 'FINISH_TO_START' as const, lagDays: 0, description: null };
+    const first = await saveProjectTask(f.owner, { ...base, name: 'First' });
+    const second = await saveProjectTask(f.owner, { ...base, name: 'Second', predecessorId: first.id });
+    await expect(saveProjectTask(f.owner, { ...base, id: first.id, name: 'First', predecessorId: second.id })).rejects.toThrow('schedule cycle');
+  });
+});
 describe('manually entered account timezones', () => {
   it('uses the company timezone consistently for blank values and rejects invalid punches', async () => {
     const f = await fixture();

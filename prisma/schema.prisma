@@ -41,6 +41,14 @@ enum Capability {
   CLIENT_PORTAL_ACCESS
   ACCOUNTING_ACCESS
   SETTINGS_MANAGE
+  PROJECT_ASSIGN
+  PROJECT_CONTACT_MANAGE
+  PROJECT_SCHEDULE_EDIT
+  DAILY_LOG_CREATE
+  DAILY_LOG_EDIT
+  FILE_UPLOAD
+  FILE_VIEW_INTERNAL
+  NOTIFICATION_MANAGE
 }
 
 enum ProjectStatus {
@@ -87,6 +95,68 @@ enum ProjectContactRole {
   CONSULTANT
   SUBTRADE
   VENDOR
+  ELECTRICIAN
+  PLUMBER
+  SUPPLIER
+  SUBCONTRACTOR
+  OTHER
+}
+
+enum ProjectTaskStatus {
+  NOT_STARTED
+  READY
+  IN_PROGRESS
+  BLOCKED
+  COMPLETE
+  CANCELLED
+}
+
+enum DependencyType {
+  FINISH_TO_START
+  START_TO_START
+  FINISH_TO_FINISH
+  START_TO_FINISH
+}
+
+enum FileKind {
+  DOCUMENT
+  PHOTO
+}
+
+enum FileCategory {
+  DRAWING
+  PERMIT
+  CONTRACT
+  ENGINEERING
+  SITE_PHOTO
+  INVOICE
+  WARRANTY
+  SELECTION
+  DAILY_LOG
+  OTHER
+}
+
+enum FileVisibility {
+  INTERNAL
+  CLIENT
+  TRADE
+}
+
+enum NotificationType {
+  PROJECT_ASSIGNED
+  TASK_ASSIGNED
+  TASK_DUE
+  TIME_APPROVAL
+  PROJECT_STATUS
+  DAILY_LOG
+  GENERAL
+}
+
+enum CostCodeType {
+  LABOUR
+  MATERIAL
+  SUBCONTRACT
+  EQUIPMENT
   OTHER
 }
 
@@ -129,34 +199,39 @@ enum TokenPurpose {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  firstName          String
-  lastName           String
-  email              String              @unique
-  passwordHash       String?
-  active             Boolean             @default(true)
-  roles              Role[]
-  earliestStart      String              @default("07:00")
-  timezone           String?
-  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime            @updatedAt @db.Timestamptz(3)
-  sessions           Session[]
-  tokens             ActionToken[]
-  jobs               EmployeeJobsite[]
-  tasks              EmployeeTask[]
-  managedEmployees   PmEmployee[]        @relation("Manager")
-  managers           PmEmployee[]        @relation("Employee")
-  managedJobs        PmJobsite[]
-  workDays           WorkDay[]
-  segments           TimeSegment[]
-  approvals          Approval[]
-  visits             SiteVisit[]
-  audit              AuditLog[]
-  punches            PunchReceipt[]
-  exports            ExportBatch[]
-  employee           Employee?
-  capabilities       UserCapability[]
-  projectAssignments ProjectAssignment[]
+  id                     String                @id @default(cuid())
+  firstName              String
+  lastName               String
+  email                  String                @unique
+  passwordHash           String?
+  active                 Boolean               @default(true)
+  roles                  Role[]
+  earliestStart          String                @default("07:00")
+  timezone               String?
+  createdAt              DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime              @updatedAt @db.Timestamptz(3)
+  sessions               Session[]
+  tokens                 ActionToken[]
+  jobs                   EmployeeJobsite[]
+  tasks                  EmployeeTask[]
+  managedEmployees       PmEmployee[]          @relation("Manager")
+  managers               PmEmployee[]          @relation("Employee")
+  managedJobs            PmJobsite[]
+  workDays               WorkDay[]
+  segments               TimeSegment[]
+  approvals              Approval[]
+  visits                 SiteVisit[]
+  audit                  AuditLog[]
+  punches                PunchReceipt[]
+  exports                ExportBatch[]
+  employee               Employee?
+  capabilities           UserCapability[]
+  projectAssignments     ProjectAssignment[]
+  createdProjectTasks    ProjectTask[]         @relation("ProjectTaskCreator")
+  projectTaskAssignments ProjectTaskAssignee[]
+  dailyLogs              DailyLog[]
+  uploadedFiles          StoredFile[]
+  notifications          Notification[]
 }
 
 model Employee {
@@ -249,6 +324,11 @@ model Project {
   assignments        ProjectAssignment[]
   contacts           ProjectContact[]
   syncMappings       AccountingSyncMapping[]
+  scheduleTasks      ProjectTask[]
+  dailyLogs          DailyLog[]
+  files              StoredFile[]
+  notifications      Notification[]
+  activity           AuditLog[]
 
   @@map("Jobsite")
 }
@@ -286,24 +366,25 @@ model Company {
 }
 
 model Contact {
-  id           String           @id @default(cuid())
-  firstName    String
-  lastName     String
-  companyId    String?
-  email        String?
-  phone        String?
-  address      String?
-  municipality String?
-  province     String?
-  postalCode   String?
-  notes        String?
-  types        ContactType[]
-  active       Boolean          @default(true)
-  portalUserId String?          @unique
-  company      Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  projects     ProjectContact[]
-  createdAt    DateTime         @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime         @updatedAt @db.Timestamptz(3)
+  id              String                @id @default(cuid())
+  firstName       String
+  lastName        String
+  companyId       String?
+  email           String?
+  phone           String?
+  address         String?
+  municipality    String?
+  province        String?
+  postalCode      String?
+  notes           String?
+  types           ContactType[]
+  active          Boolean               @default(true)
+  portalUserId    String?               @unique
+  company         Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  projects        ProjectContact[]
+  taskAssignments ProjectTaskAssignee[]
+  createdAt       DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime              @updatedAt @db.Timestamptz(3)
 
   @@index([lastName, firstName])
   @@index([companyId])
@@ -340,14 +421,158 @@ model AccountingSyncMapping {
   @@index([status])
 }
 
+model ProjectTask {
+  id              String                  @id @default(cuid())
+  projectId       String
+  name            String
+  description     String?
+  status          ProjectTaskStatus       @default(NOT_STARTED)
+  startDate       DateTime?               @db.Date
+  endDate         DateTime?               @db.Date
+  actualStartDate DateTime?               @db.Date
+  actualEndDate   DateTime?               @db.Date
+  milestone       Boolean                 @default(false)
+  sortOrder       Int                     @default(0)
+  createdById     String
+  archivedAt      DateTime?               @db.Timestamptz(3)
+  createdAt       DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime                @updatedAt @db.Timestamptz(3)
+  project         Project                 @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  createdBy       User                    @relation("ProjectTaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignees       ProjectTaskAssignee[]
+  predecessors    ProjectTaskDependency[] @relation("Successor")
+  successors      ProjectTaskDependency[] @relation("Predecessor")
+
+  @@index([projectId, archivedAt, startDate])
+  @@index([status, endDate])
+}
+
+model ProjectTaskAssignee {
+  id        String      @id @default(cuid())
+  taskId    String
+  userId    String?
+  contactId String?
+  task      ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User?       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  contact   Contact?    @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@unique([taskId, userId])
+  @@unique([taskId, contactId])
+  @@index([userId])
+  @@index([contactId])
+}
+
+model ProjectTaskDependency {
+  predecessorId String
+  successorId   String
+  type          DependencyType @default(FINISH_TO_START)
+  lagDays       Int            @default(0)
+  predecessor   ProjectTask    @relation("Predecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor     ProjectTask    @relation("Successor", fields: [successorId], references: [id], onDelete: Cascade)
+
+  @@id([predecessorId, successorId])
+  @@index([successorId])
+}
+
+model DailyLog {
+  id             String       @id @default(cuid())
+  projectId      String
+  date           DateTime     @db.Date
+  authorId       String
+  workCompleted  String?
+  siteConditions String?
+  weatherNotes   String?
+  manpowerNotes  String?
+  delaysIssues   String?
+  deliveries     String?
+  visitors       String?
+  inspections    String?
+  generalNotes   String?
+  clientVisible  Boolean      @default(false)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(3)
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  author         User         @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  attachments    StoredFile[]
+
+  @@unique([projectId, date, authorId])
+  @@index([projectId, date])
+}
+
+model StoredFile {
+  id               String         @id @default(cuid())
+  projectId        String
+  uploaderId       String
+  dailyLogId       String?
+  kind             FileKind
+  category         FileCategory   @default(OTHER)
+  visibility       FileVisibility @default(INTERNAL)
+  filename         String
+  originalFilename String
+  mimeType         String
+  size             BigInt
+  storageKey       String         @unique
+  description      String?
+  caption          String?
+  uploadedAt       DateTime       @default(now()) @db.Timestamptz(3)
+  archivedAt       DateTime?      @db.Timestamptz(3)
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  uploader         User           @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
+  dailyLog         DailyLog?      @relation(fields: [dailyLogId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, kind, uploadedAt])
+  @@index([dailyLogId])
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  projectId  String?
+  type       NotificationType
+  title      String
+  message    String
+  actionUrl  String?
+  entityType String?
+  entityId   String?
+  readAt     DateTime?        @db.Timestamptz(3)
+  createdAt  DateTime         @default(now()) @db.Timestamptz(3)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project    Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([projectId])
+}
+
+model CostCode {
+  id               String        @id @default(cuid())
+  code             String        @unique
+  name             String
+  description      String?
+  parentId         String?
+  type             CostCodeType  @default(OTHER)
+  active           Boolean       @default(true)
+  sortOrder        Int           @default(0)
+  quickBooksListId String?       @unique
+  parent           CostCode?     @relation("CostCodeTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children         CostCode[]    @relation("CostCodeTree")
+  timeSegments     TimeSegment[]
+  timeActivities   Task[]
+  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@index([parentId, sortOrder])
+}
+
 model Task {
-  id        String              @id @default(cuid())
-  name      String              @unique
-  active    Boolean             @default(true)
-  employees EmployeeTask[]
-  jobs      JobsiteTask[]
-  mappings  AccountingMapping[]
-  segments  TimeSegment[]
+  id                String              @id @default(cuid())
+  name              String              @unique
+  active            Boolean             @default(true)
+  employees         EmployeeTask[]
+  jobs              JobsiteTask[]
+  mappings          AccountingMapping[]
+  segments          TimeSegment[]
+  defaultCostCodeId String?
+  defaultCostCode   CostCode?           @relation(fields: [defaultCostCodeId], references: [id], onDelete: Restrict)
 }
 
 model JobsiteTask {
@@ -436,6 +661,8 @@ model TimeSegment {
   notes            String          @default("")
   accountingCodeId String?
   accountingCode   AccountingCode? @relation(fields: [accountingCodeId], references: [id], onDelete: Restrict)
+  costCodeId       String?
+  costCode         CostCode?       @relation(fields: [costCodeId], references: [id], onDelete: Restrict)
   status           RecordStatus    @default(RECORDED)
   version          Int             @default(1)
   createdAt        DateTime        @default(now()) @db.Timestamptz(3)
@@ -495,19 +722,24 @@ model RateLimit {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  actorId   String?
-  actor     User?    @relation(fields: [actorId], references: [id], onDelete: Restrict)
-  action    String
-  entity    String
-  entityId  String
-  before    Json?
-  after     Json?
-  reason    String?
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  id          String   @id @default(cuid())
+  actorId     String?
+  actor       User?    @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  action      String
+  entity      String
+  entityId    String
+  before      Json?
+  after       Json?
+  reason      String?
+  projectId   String?
+  description String?
+  metadata    Json?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([entity, entityId])
   @@index([createdAt])
+  @@index([projectId, createdAt])
 }
 
 model PunchReceipt {

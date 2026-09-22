@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { Role } from '@prisma/client';
 import { db, transaction, audit, Tx, lockUsers } from './db';
-import { Actor, has, requireRole } from './permissions';
+import { Actor, has, requireCapability } from './permissions';
 import { ensure } from './errors';
 import { randomToken } from './crypto';
 import { validZone } from './time';
@@ -105,7 +105,7 @@ function sanitizeUser<T extends { passwordHash?: string | null }>(user: T) {
   return safe;
 }
 export async function saveAdmin(tx: Tx, actor: Actor, input: AdminInput) {
-  requireRole(actor, 'OWNER', 'ADMIN');
+  await requireCapability(actor, 'SETTINGS_MANAGE', tx);
   if (input.entity === 'employees') {
     const before = input.id
       ? await tx.user.findUnique({
@@ -246,7 +246,7 @@ export async function saveAdmin(tx: Tx, actor: Actor, input: AdminInput) {
   return saved;
 }
 export async function adminData(actor: Actor) {
-  requireRole(actor, 'OWNER', 'ADMIN');
+  await requireCapability(actor, 'SETTINGS_MANAGE');
   const [employees, jobsites, tasks, codes, trucks, mappings, qrs, settings, logs] =
     await Promise.all([
       db.user.findMany({ select: safeUserSelect, orderBy: { lastName: 'asc' } }),
@@ -277,7 +277,7 @@ export const qrSchema = z
   })
   .strict();
 export async function manageQr(actor: Actor, input: z.infer<typeof qrSchema>) {
-  requireRole(actor, 'OWNER', 'ADMIN');
+  await requireCapability(actor, 'SETTINGS_MANAGE');
   return transaction(async (tx) => {
     let old = null;
     if (input.action !== 'CREATE') {
