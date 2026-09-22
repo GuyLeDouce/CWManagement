@@ -72,7 +72,7 @@ export async function importCsv(actor: Actor, input: z.infer<typeof importSchema
         entity === 'employees'
           ? await db.user.findUnique({ where: { email: key } })
           : entity === 'jobsites'
-            ? await db.jobsite.findUnique({ where: { number: key } })
+            ? await db.project.findUnique({ where: { number: key } })
             : entity === 'codes'
               ? await db.accountingCode.findUnique({ where: { code: key } })
               : await db.task.findUnique({ where: { name: key } });

@@ -16,7 +16,7 @@ export async function state(actor: Actor, token?: string) {
   const [settings, current, jobs, tasks, qr] = await Promise.all([
     companySettings(),
     db.timeSegment.findFirst({ where: { userId: actor.id, end: null }, include: segmentInclude }),
-    db.jobsite.findMany({
+    db.project.findMany({
       where: { active: true, employees: { some: { userId: actor.id } } },
       orderBy: { name: 'asc' },
     }),
@@ -179,7 +179,7 @@ export async function managementOptions(actor: Actor) {
       select: { id: true, firstName: true, lastName: true },
       orderBy: { lastName: 'asc' },
     }),
-    db.jobsite.findMany({
+    db.project.findMany({
       where: full ? {} : { managers: { some: { pmId: actor.id } } },
       orderBy: { name: 'asc' },
     }),

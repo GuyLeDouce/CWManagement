@@ -39,7 +39,7 @@ export function VisitsScreen({ userId, zone }: { userId: string; zone: string })
             ) : (
               <>
                 <label>
-                  Jobsite
+                  Project
                   <select value={job} onChange={(e) => setJob(e.target.value)}>
                     <option value="">Select a project</option>
                     {data.jobs.map((j) => (

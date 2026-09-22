@@ -113,10 +113,10 @@ export function ClockScreen({
     return (
       <>
         <label>
-          {current?.type === 'OFFICE' || mode === 'OFFICE' ? 'Project / cost centre' : 'Jobsite'}
+          {current?.type === 'OFFICE' || mode === 'OFFICE' ? 'Project / cost centre' : 'Project'}
           <select
             aria-label={
-              current?.type === 'OFFICE' || mode === 'OFFICE' ? 'Project / cost centre' : 'Jobsite'
+              current?.type === 'OFFICE' || mode === 'OFFICE' ? 'Project / cost centre' : 'Project'
             }
             value={job}
             onChange={(e) => {

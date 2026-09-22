@@ -329,7 +329,7 @@ function EntityEditor({
               Project + task is most specific, followed by project-only, then task-only.
             </p>
             <label>
-              Jobsite
+              Project
               <select name="jobsiteId" defaultValue={v('jobsiteId')}>
                 <option value="">Any jobsite</option>
                 {data.jobsites.map((j) => (

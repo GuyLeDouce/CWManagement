@@ -10,7 +10,7 @@ export async function visits(actor: Actor) {
       orderBy: { start: 'desc' },
       take: 500,
     }),
-    jobs: await db.jobsite.findMany({
+    jobs: await db.project.findMany({
       where: { active: true, overhead: false },
       orderBy: { name: 'asc' },
     }),
@@ -33,7 +33,7 @@ export async function visit(actor: Actor, input: z.infer<typeof visitSchema>) {
       ensure(!current, 'End your current visit first.');
       ensure(input.jobsiteId, 'Select a project.');
       ensure(
-        await tx.jobsite.findFirst({
+        await tx.project.findFirst({
           where: { id: input.jobsiteId, active: true, overhead: false },
         }),
         'Project is not available.',

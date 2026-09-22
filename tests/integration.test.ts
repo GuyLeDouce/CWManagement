@@ -137,8 +137,8 @@ async function fixture() {
   const code = await db.accountingCode.create({
     data: { code: `LAB-${n}`, description: 'Labour' },
   });
-  const job = await db.jobsite.create({ data: { name: `Project A-${n}`, number: `A-${n}` } }),
-    job2 = await db.jobsite.create({ data: { name: `Project B-${n}`, number: `B-${n}` } });
+  const job = await db.project.create({ data: { name: `Project A-${n}`, number: `A-${n}` } }),
+    job2 = await db.project.create({ data: { name: `Project B-${n}`, number: `B-${n}` } });
   for (const jobsite of [job, job2]) {
     await db.employeeJobsite.create({ data: { userId: user.id, jobsiteId: jobsite.id } });
     await db.pmJobsite.create({ data: { pmId: pm.id, jobsiteId: jobsite.id } });

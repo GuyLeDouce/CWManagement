@@ -1,10 +1,18 @@
-# Cedar Winds Timeclock
+# CWManagement
 
-A mobile-first, installable timeclock for **Cedar Winds Design~Build**, with shop/site/office time, travel, PM approvals, accounting exports, and owner/admin tools.
+A Cedar Winds-specific construction and business management platform. Phase 1 provides projects, contacts/clients, assignments, capability-based access, a live management dashboard, and the proven mobile timekeeping workflow inherited from CWTimeClock.
 
 **Stack:** Next.js 16, React, TypeScript, Tailwind/CSS theme variables, PostgreSQL, Prisma, Zod. Deploy with the usual **GitHub → Railway** workflow. The PWA is the same website saved to a phone; there is no App Store build or separate mobile backend.
 
-## What is included
+## Phase 1 foundation
+
+- CWManagement application shell with Dashboard, Leads, Projects, Schedule, Financials, Time, Contacts, Reports, and Settings navigation.
+- First-class Projects with contacts, clients, internal assignments, lifecycle status/stage, dates, location, notes, and archive state.
+- Independent Contacts, Companies, authenticated Users, and Employee profiles.
+- Role-derived capabilities with explicit per-user grant/deny overrides and server-side project scoping.
+- Database-backed management dashboard, searchable/filterable projects, responsive project workspace, and honest placeholders for later modules.
+
+## Time module retained
 
 - Individual accounts, salted password hashes, secure 30-day server sessions, reset/setup emails, shared database rate limits, and multi-role permissions.
 - Unique revocable shop/truck QR codes with a print screen. Shop start → automatic site travel → truck arrival → task/site switching → clock out. Shop/site/office modes can be changed at the shop during a day.
@@ -17,7 +25,7 @@ A mobile-first, installable timeclock for **Cedar Winds Design~Build**, with sho
 - PWA manifest, icons, Apple metadata, offline warning, and static-only service-worker cache. Punches are never queued offline.
 - SQL migration, safe seed script, Docker/Railway configuration, and unit/database/browser tests with GitHub Actions.
 
-See [architecture and operating rules](docs/architecture.md) for permissions, payroll boundaries, and implementation decisions. The original supplied brief is in [original-requirements.md](docs/original-requirements.md).
+The source-of-truth decisions are in [Architecture](docs/ARCHITECTURE.md), [Database](docs/DATABASE.md), [Permissions](docs/PERMISSIONS.md), [Accounting](docs/ACCOUNTING.md), [Portal boundaries](docs/CLIENT_PORTAL.md), and the [Roadmap](docs/ROADMAP.md). The original timeclock brief remains in [original-requirements.md](docs/original-requirements.md).
 
 ## Local setup
 

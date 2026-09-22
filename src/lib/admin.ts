@@ -169,15 +169,15 @@ export async function saveAdmin(tx: Tx, actor: Actor, input: AdminInput) {
   }
   if (input.entity === 'jobsites') {
     const before = input.id
-      ? await tx.jobsite.findUnique({ where: { id: input.id }, include: { tasks: true } })
+      ? await tx.project.findUnique({ where: { id: input.id }, include: { tasks: true } })
       : null;
     const { taskIds, ...fields } = input.data;
     if (input.id) await tx.jobsiteTask.deleteMany({ where: { jobsiteId: input.id } });
     const data = { ...fields, tasks: { create: taskIds.map((taskId) => ({ taskId })) } };
     const saved = input.id
-      ? await tx.jobsite.update({ where: { id: input.id }, data })
-      : await tx.jobsite.create({ data });
-    await audit(tx, actor.id, before ? 'UPDATED' : 'CREATED', 'Jobsite', saved.id, before, {
+      ? await tx.project.update({ where: { id: input.id }, data })
+      : await tx.project.create({ data });
+    await audit(tx, actor.id, before ? 'PROJECT_UPDATED' : 'PROJECT_CREATED', 'Project', saved.id, before, {
       ...saved,
       taskIds,
     });
@@ -250,7 +250,7 @@ export async function adminData(actor: Actor) {
   const [employees, jobsites, tasks, codes, trucks, mappings, qrs, settings, logs] =
     await Promise.all([
       db.user.findMany({ select: safeUserSelect, orderBy: { lastName: 'asc' } }),
-      db.jobsite.findMany({ include: { tasks: true }, orderBy: { name: 'asc' } }),
+      db.project.findMany({ include: { tasks: true }, orderBy: { name: 'asc' } }),
       db.task.findMany({ orderBy: { name: 'asc' } }),
       db.accountingCode.findMany({ orderBy: { code: 'asc' } }),
       db.truck.findMany({ orderBy: { name: 'asc' } }),

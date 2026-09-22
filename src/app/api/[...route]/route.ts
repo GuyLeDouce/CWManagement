@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
+import { Prisma, ProjectStatus } from '@prisma/client';
 import QRCode from 'qrcode';
 import { db, transaction, audit, databaseNow } from '@/lib/db';
 import {
@@ -30,6 +30,18 @@ import { adminData, adminSchema, saveAdmin, manageQr, qrSchema } from '@/lib/adm
 import { importCsv, importSchema, template, templates } from '@/lib/imports';
 import { visit, visitSchema, visits } from '@/lib/visits';
 import { digest } from '@/lib/crypto';
+import {
+  contactSchema,
+  contacts,
+  dashboard,
+  managementOptionsV1,
+  managementState,
+  project,
+  projects,
+  projectSchema,
+  saveContact,
+  saveProject,
+} from '@/lib/management';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const credentials = z
@@ -64,6 +76,13 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   const actor = await requireUser();
   if (!get) await rateLimit(`action:${actor.id}`, 150, 60);
   if (get && path === 'state') return state(actor, params.qr);
+  if (get && path === 'management/state') return managementState(actor);
+  if (get && path === 'management/dashboard') return dashboard(actor);
+  if (get && path === 'management/options') return managementOptionsV1(actor);
+  if (get && path === 'management/projects')
+    return { projects: await projects(actor, params.q, params.status ? z.enum(ProjectStatus).parse(params.status) : undefined, params.archived === 'true') };
+  if (get && path === 'management/project') return { project: await project(actor, z.string().min(1).parse(params.id)) };
+  if (get && path === 'management/contacts') return { contacts: await contacts(actor, params.q) };
   if (get && path === 'hours') return myHours(actor);
   if (get && path === 'locate') return locate(actor);
   if (get && path === 'options') return managementOptions(actor);
@@ -123,6 +142,8 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   }
   if (!get && path === 'auth/logout') return logout();
   if (!get && path === 'punch') return punch(actor, punchSchema.parse(body));
+  if (!get && path === 'management/projects') return saveProject(actor, projectSchema.parse(body));
+  if (!get && path === 'management/contacts') return saveContact(actor, contactSchema.parse(body));
   if (!get && path === 'records/close-day')
     return closeForgottenDay(actor, closeDaySchema.parse(body));
   if (!get && path === 'records/edit') return editRecord(actor, editSchema.parse(body));

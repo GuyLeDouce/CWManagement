@@ -34,7 +34,7 @@ test.beforeAll(async () => {
     },
   });
   const task = await db.task.create({ data: { name: `Framing ${run}` } });
-  const job = await db.jobsite.create({
+  const job = await db.project.create({
     data: {
       name: `Ross Renovation ${run}`,
       number: `E2E-${run}`,
@@ -92,7 +92,7 @@ test('mobile employee completes site workflow and My Hours stays available', asy
   await page.getByRole('button', { name: 'Site', exact: true }).click();
   await expect(page.getByRole('button', { name: 'CLOCK IN', exact: true })).toBeDisabled();
   await page
-    .getByLabel('Jobsite', { exact: true })
+    .getByLabel('Project', { exact: true })
     .selectOption({ label: `Ross Renovation ${run}` });
   await page.screenshot({ path: 'test-results/mobile-clock.png', fullPage: true });
   await page.getByRole('button', { name: 'CLOCK IN', exact: true }).click();

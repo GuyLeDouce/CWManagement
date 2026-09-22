@@ -35,7 +35,7 @@ async function main() {
     ['OVERHEAD-SALES', 'Cedar Winds – Sales'],
     ['OVERHEAD-EST', 'Cedar Winds – Estimating'],
   ])
-    await db.jobsite.upsert({
+    await db.project.upsert({
       where: { number },
       update: {},
       create: { number, name, overhead: true },

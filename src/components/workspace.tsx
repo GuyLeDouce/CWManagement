@@ -14,6 +14,13 @@ import {
   Monitor,
   Menu,
   Download,
+  LayoutDashboard,
+  FolderKanban,
+  CalendarDays,
+  Landmark,
+  ContactRound,
+  BarChart3,
+  UserRoundSearch,
 } from 'lucide-react';
 import { useApi, api } from '@/lib/client';
 import type { State } from '@/lib/client-types';
@@ -26,14 +33,22 @@ import { InfoScreen } from './info';
 import { AdminScreen } from './admin';
 import { VisitsScreen } from './visits';
 import { ErrorBox, Loading, ActionButton, Modal } from './ui';
+import { ContactsScreen, DashboardScreen, PlaceholderScreen, ProjectsScreen, ProjectScreen } from './management';
 const items = [
-  { view: '', label: 'My workday', icon: Clock3 },
+  { view: '', label: 'Dashboard', icon: LayoutDashboard },
+  { view: 'leads', label: 'Leads', icon: UserRoundSearch },
+  { view: 'projects', label: 'Projects', icon: FolderKanban },
+  { view: 'schedule', label: 'Schedule', icon: CalendarDays },
+  { view: 'financials', label: 'Financials', icon: Landmark },
+  { view: 'time', label: 'Time', icon: Clock3 },
+  { view: 'contacts', label: 'Contacts', icon: ContactRound },
+  { view: 'reports', label: 'Reports', icon: BarChart3 },
   { view: 'locate', label: 'Locate', icon: MapPin },
   { view: 'verify', label: 'Verify', icon: CheckCheck },
   { view: 'info', label: 'Info', icon: ChartNoAxesColumn },
   { view: 'send', label: 'Send', icon: Send },
   { view: 'visits', label: 'Site visit', icon: HardHat },
-  { view: 'admin', label: 'Admin', icon: Settings },
+  { view: 'admin', label: 'Settings', icon: Settings },
 ];
 export function Workspace({ path }: { path: string[] }) {
   const token = path[0] === 'scan' ? path[1] : undefined,
@@ -45,18 +60,22 @@ export function Workspace({ path }: { path: string[] }) {
     [menu, setMenu] = useState(false),
     [install, setInstall] = useState(false);
   const has = (...roles: string[]) => data?.user.roles.some((r) => roles.includes(r)) ?? false;
+  const managementUser = has('OWNER', 'ADMIN', 'PM', 'PROJECT_MANAGER', 'CONTROLLER', 'OFFICE', 'ESTIMATOR', 'DESIGNER');
   const controllerLocked = has('CONTROLLER') && !has('OWNER', 'PM') && !data?.current;
   const visible = items.filter(
     (i) =>
-      i.view === '' ||
+      (['', 'leads', 'projects', 'schedule', 'time', 'reports'].includes(i.view) && managementUser) ||
+      (i.view === 'financials' && has('OWNER', 'CONTROLLER')) ||
+      (i.view === 'contacts' && has('OWNER', 'ADMIN', 'OFFICE')) ||
       (i.view === 'locate' && has('OWNER', 'PM', 'CONTROLLER')) ||
       (i.view === 'verify' && has('OWNER', 'PM')) ||
       (['info', 'send'].includes(i.view) && has('OWNER', 'CONTROLLER')) ||
       (i.view === 'visits' && has('OWNER')) ||
       (i.view === 'admin' && has('OWNER', 'ADMIN')),
   );
+  if (!managementUser) visible.unshift({ view: 'time', label: 'Time', icon: Clock3 });
   const management = visible.length > 1;
-  const permitted = visible.some((i) => i.view === view);
+  const permitted = visible.some((i) => i.view === view) || (!managementUser && view === '');
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -104,7 +123,7 @@ export function Workspace({ path }: { path: string[] }) {
       <div className={`workspace-body ${management ? 'with-sidebar' : ''}`}>
         {management && (
           <aside className={`sidebar ${menu ? 'show' : ''}`}>
-            <div className="sidebar-caption">WORKSPACE</div>
+            <div className="sidebar-caption">CWMANAGEMENT</div>
             <nav>
               {visible.map((i) => (
                 <Link
@@ -151,6 +170,16 @@ export function Workspace({ path }: { path: string[] }) {
               <p>Scan the shop QR and clock in before opening your controller tools.</p>
               <Link href="/">Return to your workday</Link>
             </div>
+          ) : view === '' && managementUser && !token ? (
+            <DashboardScreen />
+          ) : view === 'projects' && path[1] ? (
+            <ProjectScreen id={path[1]} />
+          ) : view === 'projects' ? (
+            <ProjectsScreen />
+          ) : view === 'contacts' ? (
+            <ContactsScreen />
+          ) : ['leads', 'schedule', 'financials', 'reports'].includes(view) ? (
+            <PlaceholderScreen title={visible.find((item) => item.view === view)?.label ?? 'Module'} />
           ) : view === 'locate' ? (
             <LocateScreen zone={data.companyTimezone} />
           ) : view === 'verify' || view === 'send' ? (
@@ -161,7 +190,7 @@ export function Workspace({ path }: { path: string[] }) {
             <AdminScreen zone={data.companyTimezone} />
           ) : view === 'visits' ? (
             <VisitsScreen userId={data.user.id} zone={data.companyTimezone} />
-          ) : (
+          ) : view === 'time' || Boolean(token) || (!managementUser && view === '') ? (
             <>
               {!token && has('OWNER', 'PM') && !data.current && (
                 <div className="management-home">
@@ -187,6 +216,8 @@ export function Workspace({ path }: { path: string[] }) {
                 <ClockScreen data={data} token={token} refresh={refresh} />
               )}
             </>
+          ) : (
+            <div className="card"><h1>Page unavailable.</h1></div>
           )}
         </main>
       </div>

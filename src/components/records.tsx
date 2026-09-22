@@ -161,7 +161,7 @@ function RecordWorkspace({
             </select>
           </label>
           <label>
-            Jobsite
+            Project
             <select value={filters.jobsite} onChange={(e) => change('jobsite', e.target.value)}>
               <option value="">All jobsites</option>
               {options.jobs.map((j) => (
@@ -531,7 +531,7 @@ function EditRecord({
             </select>
           </label>
           <label>
-            Jobsite
+            Project
             <select name="jobsiteId" defaultValue={r.jobsiteId}>
               {options.jobs.map((j) => (
                 <option key={j.id} value={j.id}>

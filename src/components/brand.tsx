@@ -10,7 +10,7 @@ export function Brand() {
         </span>
       )}
       <span className="brand-name">
-        CEDAR WINDS<small>DESIGN~BUILD</small>
+        CWMANAGEMENT<small>CEDAR WINDS DESIGN~BUILD</small>
       </span>
     </span>
   );

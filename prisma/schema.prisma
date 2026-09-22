@@ -1,10 +1,12 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
+
 enum Role {
   SHOP
   SITE
@@ -13,276 +15,532 @@ enum Role {
   CONTROLLER
   OWNER
   ADMIN
+  PROJECT_MANAGER
+  ESTIMATOR
+  DESIGNER
+  FIELD
+  CLIENT
+  SUBTRADE
+  VENDOR
 }
+
+enum Capability {
+  PROJECT_VIEW_ALL
+  PROJECT_VIEW_ASSIGNED
+  PROJECT_CREATE
+  PROJECT_EDIT
+  PROJECT_FINANCIALS_VIEW
+  PROJECT_FINANCIALS_EDIT
+  TIME_CLOCK
+  TIME_EDIT
+  TIME_APPROVE
+  CONTACT_MANAGE
+  ESTIMATE_CREATE
+  PURCHASE_ORDER_CREATE
+  CHANGE_ORDER_CREATE
+  CLIENT_PORTAL_ACCESS
+  ACCOUNTING_ACCESS
+  SETTINGS_MANAGE
+}
+
+enum ProjectStatus {
+  LEAD
+  PRECONSTRUCTION
+  DESIGN
+  ESTIMATING
+  CONTRACT_PENDING
+  ACTIVE
+  ON_HOLD
+  SUBSTANTIALLY_COMPLETE
+  WARRANTY
+  COMPLETE
+  ARCHIVED
+}
+
+enum ProjectAssignmentRole {
+  PRIMARY_PROJECT_MANAGER
+  SECONDARY_PROJECT_MANAGER
+  ESTIMATOR
+  DESIGNER
+  CONTROLLER
+  FIELD_STAFF
+  OTHER
+}
+
+enum ContactType {
+  CLIENT
+  PROSPECT
+  SUBTRADE
+  VENDOR
+  CONSULTANT
+  ENGINEER
+  ARCHITECT
+  DESIGNER
+  OTHER
+}
+
+enum ProjectContactRole {
+  CLIENT
+  ARCHITECT
+  ENGINEER
+  DESIGNER
+  CONSULTANT
+  SUBTRADE
+  VENDOR
+  OTHER
+}
+
+enum SyncDirection {
+  IMPORT
+  EXPORT
+  BIDIRECTIONAL
+}
+
+enum SyncStatus {
+  NOT_SYNCED
+  PENDING
+  SYNCED
+  ERROR
+  CONFLICT
+}
+
 enum SegmentType {
   SHOP
   SITE
   OFFICE
   TRAVEL
 }
+
 enum RecordStatus {
   RECORDED
   PENDING_PM_APPROVAL
   PM_APPROVED
   EXPORTED
 }
+
 enum QrType {
   SHOP
   TRUCK
 }
+
 enum TokenPurpose {
   RESET_PASSWORD
   DESKTOP
 }
+
 model User {
-  id String @id @default(cuid())
-  firstName String
-  lastName String
-  email String @unique
-  passwordHash String?
-  active Boolean @default(true)
-  roles Role[]
-  earliestStart String @default("07:00")
-  timezone String?
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @db.Timestamptz(3)
-  sessions Session[]
-  tokens ActionToken[]
-  jobs EmployeeJobsite[]
-  tasks EmployeeTask[]
-  managedEmployees PmEmployee[] @relation("Manager")
-  managers PmEmployee[] @relation("Employee")
-  managedJobs PmJobsite[]
-  workDays WorkDay[]
-  segments TimeSegment[]
-  approvals Approval[]
-  visits SiteVisit[]
-  audit AuditLog[]
-  punches PunchReceipt[]
-  exports ExportBatch[]
+  id                 String              @id @default(cuid())
+  firstName          String
+  lastName           String
+  email              String              @unique
+  passwordHash       String?
+  active             Boolean             @default(true)
+  roles              Role[]
+  earliestStart      String              @default("07:00")
+  timezone           String?
+  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @db.Timestamptz(3)
+  sessions           Session[]
+  tokens             ActionToken[]
+  jobs               EmployeeJobsite[]
+  tasks              EmployeeTask[]
+  managedEmployees   PmEmployee[]        @relation("Manager")
+  managers           PmEmployee[]        @relation("Employee")
+  managedJobs        PmJobsite[]
+  workDays           WorkDay[]
+  segments           TimeSegment[]
+  approvals          Approval[]
+  visits             SiteVisit[]
+  audit              AuditLog[]
+  punches            PunchReceipt[]
+  exports            ExportBatch[]
+  employee           Employee?
+  capabilities       UserCapability[]
+  projectAssignments ProjectAssignment[]
 }
+
+model Employee {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  employeeNumber   String?  @unique
+  title            String?
+  active           Boolean  @default(true)
+  quickBooksListId String?  @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+}
+
+model UserCapability {
+  userId     String
+  capability Capability
+  granted    Boolean    @default(true)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, capability])
+}
+
 model EmployeeJobsite {
-  userId String
+  userId    String
   jobsiteId String
-  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
-  jobsite Jobsite @relation(fields:[jobsiteId],references:[id],onDelete:Restrict)
-  @@id([userId,jobsiteId])
+  user      User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  jobsite   Project @relation(fields: [jobsiteId], references: [id], onDelete: Restrict)
+
+  @@id([userId, jobsiteId])
 }
+
 model EmployeeTask {
   userId String
   taskId String
-  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
-  task Task @relation(fields:[taskId],references:[id],onDelete:Restrict)
-  @@id([userId,taskId])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Restrict)
+
+  @@id([userId, taskId])
 }
+
 model PmEmployee {
-  pmId String
+  pmId       String
   employeeId String
-  pm User @relation("Manager",fields:[pmId],references:[id],onDelete:Restrict)
-  employee User @relation("Employee",fields:[employeeId],references:[id],onDelete:Restrict)
-  @@id([pmId,employeeId])
+  pm         User   @relation("Manager", fields: [pmId], references: [id], onDelete: Restrict)
+  employee   User   @relation("Employee", fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@id([pmId, employeeId])
 }
+
 model PmJobsite {
-  pmId String
+  pmId      String
   jobsiteId String
-  pm User @relation(fields:[pmId],references:[id],onDelete:Restrict)
-  jobsite Jobsite @relation(fields:[jobsiteId],references:[id],onDelete:Restrict)
-  @@id([pmId,jobsiteId])
+  pm        User    @relation(fields: [pmId], references: [id], onDelete: Restrict)
+  jobsite   Project @relation(fields: [jobsiteId], references: [id], onDelete: Restrict)
+
+  @@id([pmId, jobsiteId])
 }
-model Jobsite {
-  id String @id @default(cuid())
-  name String
-  number String @unique
-  address String?
-  overhead Boolean @default(false)
-  active Boolean @default(true)
-  employees EmployeeJobsite[]
-  managers PmJobsite[]
-  tasks JobsiteTask[]
-  mappings AccountingMapping[]
-  segments TimeSegment[]
-  visits SiteVisit[]
-  trucks Truck[]
+
+model Project {
+  id                 String                  @id @default(cuid())
+  name               String
+  number             String                  @unique
+  address            String?
+  overhead           Boolean                 @default(false)
+  active             Boolean                 @default(true)
+  employees          EmployeeJobsite[]
+  managers           PmJobsite[]
+  tasks              JobsiteTask[]
+  mappings           AccountingMapping[]
+  segments           TimeSegment[]
+  visits             SiteVisit[]
+  trucks             Truck[]
+  description        String?
+  projectType        String?
+  status             ProjectStatus           @default(ACTIVE)
+  stage              String?
+  municipality       String?
+  province           String?                 @default("ON")
+  postalCode         String?
+  startDate          DateTime?               @db.Date
+  targetCompletion   DateTime?               @db.Date
+  actualCompletion   DateTime?               @db.Date
+  contractAmount     Decimal?                @db.Decimal(14, 2)
+  internalNotes      String?
+  clientVisibleNotes String?
+  archivedAt         DateTime?               @db.Timestamptz(3)
+  createdAt          DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                @updatedAt @db.Timestamptz(3)
+  assignments        ProjectAssignment[]
+  contacts           ProjectContact[]
+  syncMappings       AccountingSyncMapping[]
+
+  @@map("Jobsite")
 }
+
+model ProjectAssignment {
+  id        String                @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectAssignmentRole
+  primary   Boolean               @default(false)
+  project   Project               @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt DateTime              @default(now()) @db.Timestamptz(3)
+
+  @@unique([projectId, userId, role])
+  @@index([userId, role])
+}
+
+model Company {
+  id               String    @id @default(cuid())
+  name             String    @unique
+  legalName        String?
+  email            String?
+  phone            String?
+  website          String?
+  address          String?
+  municipality     String?
+  province         String?
+  postalCode       String?
+  notes            String?
+  quickBooksListId String?   @unique
+  contacts         Contact[]
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+}
+
+model Contact {
+  id           String           @id @default(cuid())
+  firstName    String
+  lastName     String
+  companyId    String?
+  email        String?
+  phone        String?
+  address      String?
+  municipality String?
+  province     String?
+  postalCode   String?
+  notes        String?
+  types        ContactType[]
+  active       Boolean          @default(true)
+  portalUserId String?          @unique
+  company      Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  projects     ProjectContact[]
+  createdAt    DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@index([lastName, firstName])
+  @@index([companyId])
+}
+
+model ProjectContact {
+  projectId String
+  contactId String
+  role      ProjectContactRole
+  primary   Boolean            @default(false)
+  project   Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  contact   Contact            @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@id([projectId, contactId, role])
+  @@index([contactId])
+}
+
+model AccountingSyncMapping {
+  id               String        @id @default(cuid())
+  entityType       String
+  entityId         String
+  quickBooksListId String?
+  quickBooksTxnId  String?
+  direction        SyncDirection @default(BIDIRECTIONAL)
+  status           SyncStatus    @default(NOT_SYNCED)
+  lastSyncedAt     DateTime?     @db.Timestamptz(3)
+  lastError        String?
+  projectId        String?
+  project          Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@unique([entityType, entityId])
+  @@index([status])
+}
+
 model Task {
-  id String @id @default(cuid())
-  name String @unique
-  active Boolean @default(true)
+  id        String              @id @default(cuid())
+  name      String              @unique
+  active    Boolean             @default(true)
   employees EmployeeTask[]
-  jobs JobsiteTask[]
-  mappings AccountingMapping[]
-  segments TimeSegment[]
+  jobs      JobsiteTask[]
+  mappings  AccountingMapping[]
+  segments  TimeSegment[]
 }
+
 model JobsiteTask {
   jobsiteId String
-  taskId String
-  jobsite Jobsite @relation(fields:[jobsiteId],references:[id],onDelete:Restrict)
-  task Task @relation(fields:[taskId],references:[id],onDelete:Restrict)
-  @@id([jobsiteId,taskId])
+  taskId    String
+  jobsite   Project @relation(fields: [jobsiteId], references: [id], onDelete: Restrict)
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Restrict)
+
+  @@id([jobsiteId, taskId])
 }
+
 model AccountingCode {
-  id String @id @default(cuid())
-  code String @unique
+  id          String              @id @default(cuid())
+  code        String              @unique
   description String
-  active Boolean @default(true)
-  mappings AccountingMapping[]
-  segments TimeSegment[]
+  active      Boolean             @default(true)
+  mappings    AccountingMapping[]
+  segments    TimeSegment[]
 }
+
 model AccountingMapping {
-  id String @id @default(cuid())
-  jobsiteId String?
-  taskId String?
+  id               String         @id @default(cuid())
+  jobsiteId        String?
+  taskId           String?
   accountingCodeId String
-  jobsite Jobsite? @relation(fields:[jobsiteId],references:[id],onDelete:Restrict)
-  task Task? @relation(fields:[taskId],references:[id],onDelete:Restrict)
-  accountingCode AccountingCode @relation(fields:[accountingCodeId],references:[id],onDelete:Restrict)
+  jobsite          Project?       @relation(fields: [jobsiteId], references: [id], onDelete: Restrict)
+  task             Task?          @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  accountingCode   AccountingCode @relation(fields: [accountingCodeId], references: [id], onDelete: Restrict)
 }
+
 model Truck {
-  id String @id @default(cuid())
-  name String @unique
-  active Boolean @default(true)
+  id                String        @id @default(cuid())
+  name              String        @unique
+  active            Boolean       @default(true)
   inferredJobsiteId String?
-  lastScanAt DateTime? @db.Timestamptz(3)
-  inferredJobsite Jobsite? @relation(fields:[inferredJobsiteId],references:[id],onDelete:Restrict)
-  qrs QrCode[]
-  segments TimeSegment[]
+  lastScanAt        DateTime?     @db.Timestamptz(3)
+  inferredJobsite   Project?      @relation(fields: [inferredJobsiteId], references: [id], onDelete: Restrict)
+  qrs               QrCode[]
+  segments          TimeSegment[]
 }
+
 model QrCode {
-  id String @id @default(cuid())
-  label String
-  type QrType
-  token String @unique
-  truckId String?
-  truck Truck? @relation(fields:[truckId],references:[id],onDelete:Restrict)
-  active Boolean @default(true)
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  id        String    @id @default(cuid())
+  label     String
+  type      QrType
+  token     String    @unique
+  truckId   String?
+  truck     Truck?    @relation(fields: [truckId], references: [id], onDelete: Restrict)
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
   revokedAt DateTime? @db.Timestamptz(3)
 }
+
 model WorkDay {
-  id String @id @default(cuid())
-  userId String
-  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
-  date String
-  timezone String
-  originalStart DateTime @db.Timestamptz(3)
-  paidStart DateTime @db.Timestamptz(3)
-  endedAt DateTime? @db.Timestamptz(3)
-  segments TimeSegment[]
-  @@index([userId,date])
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  date          String
+  timezone      String
+  originalStart DateTime      @db.Timestamptz(3)
+  paidStart     DateTime      @db.Timestamptz(3)
+  endedAt       DateTime?     @db.Timestamptz(3)
+  segments      TimeSegment[]
+
+  @@index([userId, date])
 }
+
 model TimeSegment {
-  id String @id @default(cuid())
-  userId String
-  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
-  workDayId String
-  workDay WorkDay @relation(fields:[workDayId],references:[id],onDelete:Restrict)
-  type SegmentType
-  jobsiteId String
-  jobsite Jobsite @relation(fields:[jobsiteId],references:[id],onDelete:Restrict)
-  taskId String?
-  task Task? @relation(fields:[taskId],references:[id],onDelete:Restrict)
-  truckId String?
-  truck Truck? @relation(fields:[truckId],references:[id],onDelete:Restrict)
-  travelOrigin String?
-  originalStart DateTime @db.Timestamptz(3)
-  originalEnd DateTime? @db.Timestamptz(3)
-  effectiveStart DateTime @db.Timestamptz(3)
-  end DateTime? @db.Timestamptz(3)
-  notes String @default("")
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  workDayId        String
+  workDay          WorkDay         @relation(fields: [workDayId], references: [id], onDelete: Restrict)
+  type             SegmentType
+  jobsiteId        String
+  jobsite          Project         @relation(fields: [jobsiteId], references: [id], onDelete: Restrict)
+  taskId           String?
+  task             Task?           @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  truckId          String?
+  truck            Truck?          @relation(fields: [truckId], references: [id], onDelete: Restrict)
+  travelOrigin     String?
+  originalStart    DateTime        @db.Timestamptz(3)
+  originalEnd      DateTime?       @db.Timestamptz(3)
+  effectiveStart   DateTime        @db.Timestamptz(3)
+  end              DateTime?       @db.Timestamptz(3)
+  notes            String          @default("")
   accountingCodeId String?
-  accountingCode AccountingCode? @relation(fields:[accountingCodeId],references:[id],onDelete:Restrict)
-  status RecordStatus @default(RECORDED)
-  version Int @default(1)
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @db.Timestamptz(3)
-  approvals Approval[]
-  exportItems ExportItem[]
-  @@index([userId,effectiveStart])
-  @@index([status,effectiveStart])
+  accountingCode   AccountingCode? @relation(fields: [accountingCodeId], references: [id], onDelete: Restrict)
+  status           RecordStatus    @default(RECORDED)
+  version          Int             @default(1)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(3)
+  approvals        Approval[]
+  exportItems      ExportItem[]
+
+  @@index([userId, effectiveStart])
+  @@index([status, effectiveStart])
   @@index([jobsiteId])
 }
+
 model Approval {
-  id String @id @default(cuid())
-  segmentId String
-  segment TimeSegment @relation(fields:[segmentId],references:[id],onDelete:Restrict)
-  approverId String
-  approver User @relation(fields:[approverId],references:[id],onDelete:Restrict)
+  id             String      @id @default(cuid())
+  segmentId      String
+  segment        TimeSegment @relation(fields: [segmentId], references: [id], onDelete: Restrict)
+  approverId     String
+  approver       User        @relation(fields: [approverId], references: [id], onDelete: Restrict)
   segmentVersion Int
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  createdAt      DateTime    @default(now()) @db.Timestamptz(3)
 }
+
 model SiteVisit {
-  id String @id @default(cuid())
-  userId String
-  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
   jobsiteId String
-  jobsite Jobsite @relation(fields:[jobsiteId],references:[id],onDelete:Restrict)
-  start DateTime @default(now()) @db.Timestamptz(3)
-  end DateTime? @db.Timestamptz(3)
-  notes String @default("")
+  jobsite   Project   @relation(fields: [jobsiteId], references: [id], onDelete: Restrict)
+  start     DateTime  @default(now()) @db.Timestamptz(3)
+  end       DateTime? @db.Timestamptz(3)
+  notes     String    @default("")
 }
+
 model Session {
-  id String @id @default(cuid())
-  tokenHash String @unique
-  userId String
-  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime @db.Timestamptz(3)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 }
+
 model ActionToken {
-  id String @id @default(cuid())
-  tokenHash String @unique
-  userId String
-  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
-  purpose TokenPurpose
-  expiresAt DateTime @db.Timestamptz(3)
-  usedAt DateTime? @db.Timestamptz(3)
+  id        String       @id @default(cuid())
+  tokenHash String       @unique
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   TokenPurpose
+  expiresAt DateTime     @db.Timestamptz(3)
+  usedAt    DateTime?    @db.Timestamptz(3)
 }
+
 model RateLimit {
-  key String @id
-  count Int
+  key      String   @id
+  count    Int
   resetsAt DateTime @db.Timestamptz(3)
 }
+
 model AuditLog {
-  id String @id @default(cuid())
-  actorId String?
-  actor User? @relation(fields:[actorId],references:[id],onDelete:Restrict)
-  action String
-  entity String
-  entityId String
-  before Json?
-  after Json?
-  reason String?
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  reason    String?
   createdAt DateTime @default(now()) @db.Timestamptz(3)
-  @@index([entity,entityId])
+
+  @@index([entity, entityId])
   @@index([createdAt])
 }
+
 model PunchReceipt {
-  key String @id
-  userId String
-  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  key         String   @id
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   requestHash String
-  response Json
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  response    Json
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
 }
+
 model ExportBatch {
-  id String @id @default(cuid())
-  actorId String
-  actor User @relation(fields:[actorId],references:[id],onDelete:Restrict)
-  createdAt DateTime @default(now()) @db.Timestamptz(3)
-  csv String
-  reason String?
-  items ExportItem[]
+  id        String       @id @default(cuid())
+  actorId   String
+  actor     User         @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+  csv       String
+  reason    String?
+  items     ExportItem[]
 }
+
 model ExportItem {
-  batchId String
+  batchId   String
   segmentId String
-  batch ExportBatch @relation(fields:[batchId],references:[id],onDelete:Restrict)
-  segment TimeSegment @relation(fields:[segmentId],references:[id],onDelete:Restrict)
-  @@id([batchId,segmentId])
+  batch     ExportBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  segment   TimeSegment @relation(fields: [segmentId], references: [id], onDelete: Restrict)
+
+  @@id([batchId, segmentId])
 }
+
 model Settings {
-  id String @id @default("company")
-  timezone String @default("America/Toronto")
+  id              String @id @default("company")
+  timezone        String @default("America/Toronto")
   reportRecipient String @default("")
-  weekStartsOn Int @default(1)
+  weekStartsOn    Int    @default(1)
 }

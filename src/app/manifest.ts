@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next';
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
-    name: 'Cedar Winds Timeclock',
-    short_name: 'Cedar Winds',
-    description: 'Your Cedar Winds workday, simplified.',
+    name: 'CWManagement',
+    short_name: 'CWManagement',
+    description: 'Cedar Winds construction and business management.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

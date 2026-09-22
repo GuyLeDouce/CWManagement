@@ -117,7 +117,7 @@ export async function finalizeExport(actor: Actor, input: z.infer<typeof exportS
         'Employee',
         'Employee ID',
         'Date',
-        'Jobsite',
+        'Project',
         'Project number',
         'Task',
         'Work type',

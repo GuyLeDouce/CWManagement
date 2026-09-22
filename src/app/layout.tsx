@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import { Pwa } from '@/components/pwa';
 import './globals.css';
 export const metadata: Metadata = {
-  title: 'Cedar Winds Timeclock',
-  description: 'Employee time, projects, and approvals for Cedar Winds Design~Build.',
-  applicationName: 'Cedar Winds Timeclock',
+  title: 'CWManagement',
+  description: 'Construction and business management for Cedar Winds Design~Build.',
+  applicationName: 'CWManagement',
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Cedar Winds' },
   icons: { icon: '/icons/icon-192.png', apple: '/icons/apple-touch-icon.png' },
