@@ -62,6 +62,32 @@ import {
   taskActionSchema,
   updateNotifications,
 } from '@/lib/operations';
+import {
+  actualCostSchema,
+  costCodeImportSchema,
+  costCodeSchema,
+  costCodeTemplate,
+  costCodes,
+  createActualCost,
+  createBudget,
+  createEstimate,
+  createEstimateRevision,
+  createProposal,
+  createProposalRevision,
+  estimateLineSchema,
+  estimateSchema,
+  estimates,
+  financialSettings,
+  financialSettingsSchema,
+  importCostCodes,
+  jobCost,
+  proposalAction,
+  proposalSchema,
+  proposals,
+  saveCostCode,
+  saveEstimateLine,
+  saveFinancialSettings,
+} from '@/lib/financial';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const credentials = z
@@ -100,14 +126,56 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   if (get && path === 'management/dashboard') return dashboard(actor);
   if (get && path === 'management/options') return managementOptionsV1(actor);
   if (get && path === 'management/projects')
-    return { projects: await projects(actor, params.q, params.status ? z.enum(ProjectStatus).parse(params.status) : undefined, params.archived === 'true') };
-  if (get && path === 'management/project') return { project: await project(actor, z.string().min(1).parse(params.id)) };
+    return {
+      projects: await projects(
+        actor,
+        params.q,
+        params.status ? z.enum(ProjectStatus).parse(params.status) : undefined,
+        params.archived === 'true',
+      ),
+    };
+  if (get && path === 'management/project')
+    return { project: await project(actor, z.string().min(1).parse(params.id)) };
   if (get && path === 'management/contacts') return { contacts: await contacts(actor, params.q) };
-  if (get && path === 'management/activity') return { activity: await projectActivity(actor, z.string().min(1).parse(params.projectId)) };
-  if (get && path === 'management/schedule') return { tasks: await schedule(actor, z.string().min(1).parse(params.projectId)) };
-  if (get && path === 'management/daily-logs') return { logs: await dailyLogs(actor, z.string().min(1).parse(params.projectId)) };
-  if (get && path === 'management/files') return { files: await files(actor, z.string().min(1).parse(params.projectId), params.kind ? z.enum(['DOCUMENT', 'PHOTO']).parse(params.kind) : undefined) };
+  if (get && path === 'management/activity')
+    return { activity: await projectActivity(actor, z.string().min(1).parse(params.projectId)) };
+  if (get && path === 'management/schedule')
+    return { tasks: await schedule(actor, z.string().min(1).parse(params.projectId)) };
+  if (get && path === 'management/daily-logs')
+    return { logs: await dailyLogs(actor, z.string().min(1).parse(params.projectId)) };
+  if (get && path === 'management/files')
+    return {
+      files: await files(
+        actor,
+        z.string().min(1).parse(params.projectId),
+        params.kind ? z.enum(['DOCUMENT', 'PHOTO']).parse(params.kind) : undefined,
+      ),
+    };
   if (get && path === 'notifications') return { notifications: await notifications(actor) };
+  if (get && path === 'financial/cost-codes')
+    return {
+      costCodes: await costCodes(
+        actor,
+        params.q,
+        params.active === undefined ? undefined : params.active === 'true',
+      ),
+    };
+  if (get && path === 'financial/cost-code-template') {
+    await requireCapability(actor, 'COST_CODE_VIEW');
+    return new NextResponse(costCodeTemplate, {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="cedar-winds-cost-codes.csv"',
+      },
+    });
+  }
+  if (get && path === 'financial/estimates')
+    return { estimates: await estimates(actor, z.string().parse(params.projectId)) };
+  if (get && path === 'financial/proposals')
+    return { proposals: await proposals(actor, z.string().parse(params.projectId)) };
+  if (get && path === 'financial/job-cost')
+    return jobCost(actor, z.string().parse(params.projectId));
+  if (get && path === 'financial/settings') return { settings: await financialSettings(actor) };
   if (get && path === 'hours') return myHours(actor);
   if (get && path === 'locate') return locate(actor);
   if (get && path === 'options') return managementOptions(actor);
@@ -169,13 +237,57 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   if (!get && path === 'punch') return punch(actor, punchSchema.parse(body));
   if (!get && path === 'management/projects') return saveProject(actor, projectSchema.parse(body));
   if (!get && path === 'management/contacts') return saveContact(actor, contactSchema.parse(body));
-  if (!get && path === 'management/assignments') return saveAssignment(actor, assignmentSchema.parse(body));
-  if (!get && path === 'management/project-contacts') return saveProjectContact(actor, projectContactSchema.parse(body));
-  if (!get && path === 'management/schedule') return saveProjectTask(actor, projectTaskSchema.parse(body));
-  if (!get && path === 'management/schedule/action') return actOnProjectTask(actor, taskActionSchema.parse(body));
-  if (!get && path === 'management/daily-logs') return saveDailyLog(actor, dailyLogSchema.parse(body));
-  if (!get && path === 'management/files/action') return archiveFile(actor, fileActionSchema.parse(body));
-  if (!get && path === 'notifications') return updateNotifications(actor, z.object({ id: z.string().optional(), all: z.boolean().optional(), unread: z.boolean().optional() }).strict().parse(body));
+  if (!get && path === 'management/assignments')
+    return saveAssignment(actor, assignmentSchema.parse(body));
+  if (!get && path === 'management/project-contacts')
+    return saveProjectContact(actor, projectContactSchema.parse(body));
+  if (!get && path === 'management/schedule')
+    return saveProjectTask(actor, projectTaskSchema.parse(body));
+  if (!get && path === 'management/schedule/action')
+    return actOnProjectTask(actor, taskActionSchema.parse(body));
+  if (!get && path === 'management/daily-logs')
+    return saveDailyLog(actor, dailyLogSchema.parse(body));
+  if (!get && path === 'management/files/action')
+    return archiveFile(actor, fileActionSchema.parse(body));
+  if (!get && path === 'notifications')
+    return updateNotifications(
+      actor,
+      z
+        .object({
+          id: z.string().optional(),
+          all: z.boolean().optional(),
+          unread: z.boolean().optional(),
+        })
+        .strict()
+        .parse(body),
+    );
+  if (!get && path === 'financial/cost-codes')
+    return saveCostCode(actor, costCodeSchema.parse(body));
+  if (!get && path === 'financial/cost-code-import')
+    return importCostCodes(actor, costCodeImportSchema.parse(body));
+  if (!get && path === 'financial/estimates')
+    return createEstimate(actor, estimateSchema.parse(body));
+  if (!get && path === 'financial/estimate-lines')
+    return saveEstimateLine(actor, estimateLineSchema.parse(body));
+  if (!get && path === 'financial/estimate-revisions')
+    return createEstimateRevision(actor, z.object({ id: z.string() }).parse(body).id);
+  if (!get && path === 'financial/proposals')
+    return createProposal(actor, proposalSchema.parse(body));
+  if (!get && path === 'financial/proposal-revisions')
+    return createProposalRevision(actor, z.object({ id: z.string() }).parse(body).id);
+  if (!get && path === 'financial/proposal-action') {
+    const input = z.object({ id: z.string(), action: z.enum(['issue', 'accept']) }).parse(body);
+    return proposalAction(actor, input.id, input.action);
+  }
+  if (!get && path === 'financial/budgets')
+    return createBudget(
+      actor,
+      z.object({ proposalRevisionId: z.string() }).parse(body).proposalRevisionId,
+    );
+  if (!get && path === 'financial/actual-costs')
+    return createActualCost(actor, actualCostSchema.parse(body));
+  if (!get && path === 'financial/settings')
+    return saveFinancialSettings(actor, financialSettingsSchema.parse(body));
   if (!get && path === 'records/close-day')
     return closeForgottenDay(actor, closeDaySchema.parse(body));
   if (!get && path === 'records/edit') return editRecord(actor, editSchema.parse(body));
@@ -210,7 +322,11 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
     return { ok: true, message: 'Password email sent; existing sessions revoked.' };
   }
   if (!get && path === 'desktop/email') {
-    ensure(await can(actor, 'TIME_APPROVE') || await can(actor, 'ACCOUNTING_ACCESS'), 'You do not have permission to do this.', 403);
+    ensure(
+      (await can(actor, 'TIME_APPROVE')) || (await can(actor, 'ACCOUNTING_ACCESS')),
+      'You do not have permission to do this.',
+      403,
+    );
     checkEmailConfiguration();
     await rateLimit(`desktop:${actor.id}`, 4);
     const token = await issueToken(actor.id, 'DESKTOP');
@@ -222,7 +338,11 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
     return { ok: true, message: 'A desktop link has been emailed to you.' };
   }
   if (!get && path === 'desktop/open') {
-    ensure(await can(actor, 'TIME_APPROVE') || await can(actor, 'ACCOUNTING_ACCESS'), 'You do not have permission to do this.', 403);
+    ensure(
+      (await can(actor, 'TIME_APPROVE')) || (await can(actor, 'ACCOUNTING_ACCESS')),
+      'You do not have permission to do this.',
+      403,
+    );
     const { token } = z.object({ token: z.string().min(32).max(100) }).parse(body);
     await transaction(async (tx) => {
       const item = await tx.actionToken.findUnique({ where: { tokenHash: digest(token) } });

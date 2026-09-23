@@ -34,8 +34,15 @@ import { InfoScreen } from './info';
 import { AdminScreen } from './admin';
 import { VisitsScreen } from './visits';
 import { ErrorBox, Loading, ActionButton, Modal } from './ui';
-import { ContactsScreen, DashboardScreen, PlaceholderScreen, ProjectsScreen, ProjectScreen } from './management';
+import {
+  ContactsScreen,
+  DashboardScreen,
+  PlaceholderScreen,
+  ProjectsScreen,
+  ProjectScreen,
+} from './management';
 import { NotificationScreen } from './notifications';
+import { FinancialsScreen } from './financials';
 const items = [
   { view: '', label: 'Dashboard', icon: LayoutDashboard },
   { view: 'leads', label: 'Leads', icon: UserRoundSearch },
@@ -63,14 +70,16 @@ export function Workspace({ path }: { path: string[] }) {
     [menu, setMenu] = useState(false),
     [install, setInstall] = useState(false);
   const has = (...roles: string[]) => data?.user.roles.some((r) => roles.includes(r)) ?? false;
-  const cap = (...capabilities: string[]) => data?.capabilities.some((item) => capabilities.includes(item)) ?? false;
+  const cap = (...capabilities: string[]) =>
+    data?.capabilities.some((item) => capabilities.includes(item)) ?? false;
   const managementUser = cap('PROJECT_VIEW_ALL', 'PROJECT_VIEW_ASSIGNED');
   const controllerLocked = has('CONTROLLER') && !has('OWNER', 'PM') && !data?.current;
   const visible = items.filter(
     (i) =>
-      (['', 'leads', 'projects', 'schedule', 'time', 'reports'].includes(i.view) && managementUser) ||
+      (['', 'leads', 'projects', 'schedule', 'time', 'reports'].includes(i.view) &&
+        managementUser) ||
       i.view === 'notifications' ||
-      (i.view === 'financials' && cap('PROJECT_FINANCIALS_VIEW')) ||
+      (i.view === 'financials' && cap('COST_CODE_VIEW', 'COST_CODE_MANAGE')) ||
       (i.view === 'contacts' && cap('CONTACT_MANAGE')) ||
       (i.view === 'locate' && cap('TIME_APPROVE', 'ACCOUNTING_ACCESS')) ||
       (i.view === 'verify' && cap('TIME_APPROVE')) ||
@@ -185,8 +194,12 @@ export function Workspace({ path }: { path: string[] }) {
             <ContactsScreen />
           ) : view === 'notifications' ? (
             <NotificationScreen />
-          ) : ['leads', 'schedule', 'financials', 'reports'].includes(view) ? (
-            <PlaceholderScreen title={visible.find((item) => item.view === view)?.label ?? 'Module'} />
+          ) : view === 'financials' ? (
+            <FinancialsScreen />
+          ) : ['leads', 'schedule', 'reports'].includes(view) ? (
+            <PlaceholderScreen
+              title={visible.find((item) => item.view === view)?.label ?? 'Module'}
+            />
           ) : view === 'locate' ? (
             <LocateScreen zone={data.companyTimezone} />
           ) : view === 'verify' || view === 'send' ? (
@@ -224,7 +237,9 @@ export function Workspace({ path }: { path: string[] }) {
               )}
             </>
           ) : (
-            <div className="card"><h1>Page unavailable.</h1></div>
+            <div className="card">
+              <h1>Page unavailable.</h1>
+            </div>
           )}
         </main>
       </div>

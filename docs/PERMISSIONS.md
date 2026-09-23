@@ -27,3 +27,7 @@ Every Phase 2 operation checks both a capability and `requireProjectAccess`. Not
 ## Remaining role checks
 
 Roles remain legitimate for clock modes (`SHOP`, `SITE`, `OFFICE`) and for the Owner-only accounting-export override/Owner-role escalation invariant. The legacy locate/report controller-clock-in rule and PM employee/project intersection still use role context because they encode timekeeping workflow, not generic application access. Administration, imports, QR management, project operations, daily logs, files, and normal time approval now enter through capabilities.
+
+## Financial capabilities
+
+Financial authorization uses `COST_CODE_VIEW`, `COST_CODE_MANAGE`, `ESTIMATE_VIEW`, `ESTIMATE_CREATE`, `ESTIMATE_EDIT`, `ESTIMATE_APPROVE_INTERNAL`, `PROPOSAL_VIEW`, `PROPOSAL_CREATE`, `PROPOSAL_ISSUE`, `PROPOSAL_ACCEPT`, `BUDGET_VIEW`, `BUDGET_EDIT`, `JOB_COST_VIEW`, `ACTUAL_COST_VIEW`, `ACTUAL_COST_MANAGE`, and `FINANCIAL_MARGIN_VIEW`. Owner receives all capabilities. Controller receives broad accounting/job-cost access. Estimator receives estimate/proposal and margin access. PM receives assigned-project financial reporting without accounting mutation or margin access. Field, shop, clients, and trades receive no financial capabilities.

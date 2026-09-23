@@ -17,3 +17,11 @@ Three domains remain separate:
 - `CostCode`: a financial classification, such as framing labour.
 
 A time activity may have a default cost code, and each time segment may record an explicit cost code. The existing `AccountingCode` and `AccountingMapping` continue to support current exports during a deliberate Phase 3 mapping/migration; they are not automatically converted because Cedar Winds source-code semantics must be reviewed first.
+
+## Phase 3 financial ledger
+
+Internal estimated cost, client price, budget, remaining commitment, actual cost, and forecast are separate values. Money uses PostgreSQL Decimal; line cost and markup round half-up to cents before aggregation. Percentage markup means markup on cost, never target margin. Gross margin is `(client price - cost) / client price`. Tax is applied only to taxable included client-price lines using `Settings.taxRate`; it is not revenue or internal budget.
+
+The initial forecast per Cost Code/Cost Type is `max(current budget, actual + remaining commitment + forecast adjustment)`. Remaining commitment is `committedAmount - consumedAmount`, so linked actuals do not double-count the original commitment. Phase 4 must update commitment consumption transactionally when PO/subcontract actuals arrive.
+
+QuickBooks remains ledger-authoritative. `ActualCost.externalSystem + sourceExternalId`, QuickBooks TxnID/EditSequence fields, and source types provide idempotent future imports into this normalized job-cost ledger.

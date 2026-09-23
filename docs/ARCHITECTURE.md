@@ -34,3 +34,7 @@ Every protected read and mutation is checked server-side. UI hiding is convenien
 ## Project operations services
 
 `operations.ts` is the application-service boundary for project assignments, contacts, schedule tasks/dependencies, daily logs, files, activity, and notifications. Mutations validate input, verify both capability and project scope, run compound changes transactionally, and publish one meaningful project event. File bytes use dedicated multipart/download route handlers because the JSON compatibility dispatcher is intentionally size-limited.
+
+## Financial services
+
+`financial.ts` is the server-authoritative boundary for cost-code administration/import, Decimal calculations, estimate/proposal revision snapshots, budget creation, actual costs, and job-cost aggregation. Browser totals are previews only. Project workspaces expose Estimate, Proposals, and Budget alongside operations.

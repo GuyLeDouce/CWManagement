@@ -29,6 +29,9 @@ describe('CWManagement domain validation', () => {
     expect(roleGrants({ roles: ['FIELD'] }, 'PROJECT_FINANCIALS_VIEW')).toBe(false);
     expect(roleGrants({ roles: ['OWNER'] }, 'SETTINGS_MANAGE')).toBe(true);
     expect(roleGrants({ roles: ['PROJECT_MANAGER'] }, 'PROJECT_SCHEDULE_EDIT')).toBe(true);
+    expect(roleGrants({ roles: ['FIELD'] }, 'FINANCIAL_MARGIN_VIEW')).toBe(false);
+    expect(roleGrants({ roles: ['ESTIMATOR'] }, 'FINANCIAL_MARGIN_VIEW')).toBe(true);
+    expect(roleGrants({ roles: ['PROJECT_MANAGER'] }, 'ESTIMATE_VIEW')).toBe(false);
   });
 
   it('validates schedule dates without conflating task domains', () => {

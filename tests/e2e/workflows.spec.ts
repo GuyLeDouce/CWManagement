@@ -82,6 +82,97 @@ test.beforeAll(async () => {
   });
 });
 test.afterAll(() => db.$disconnect());
+
+test('financial totals, proposal print content, and accepted budgets remain consistent', async ({
+  page,
+}) => {
+  await page.goto('/login');
+  await page.getByLabel('Email address').fill(ownerEmail);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  const post = async (path: string, data: unknown) => {
+    const response = await page.request.post(`/api/financial/${path}`, {
+      headers: { Origin: 'http://localhost:3000' },
+      data,
+    });
+    expect(response.ok(), await response.text()).toBe(true);
+    return response.json();
+  };
+  const project = await db.project.findUniqueOrThrow({ where: { number: `E2E-${run}` } });
+  const code = await post('cost-codes', { code: `FIN-${run}`, name: 'Finishes', type: 'MATERIAL' });
+  const estimate = await post('estimates', { projectId: project.id, name: 'Browser estimate' });
+  const source = await db.estimateRevision.findUniqueOrThrow({
+    where: { id: estimate.revisions[0].id },
+    include: { sections: true },
+  });
+  const line = {
+    revisionId: source.id,
+    sectionId: source.sections[0].id,
+    costCodeId: code.id,
+    costType: 'MATERIAL',
+    description: 'Internal finish cost',
+    clientDescription: 'Finish package',
+    quantity: '3',
+    unit: 'EA',
+    unitCost: '33.335',
+    markupMethod: 'FIXED',
+    markupValue: '10',
+    taxable: true,
+    optional: false,
+    allowance: false,
+    included: true,
+    sortOrder: 0,
+    expectedVersion: source.version,
+  };
+  await post('estimate-lines', line);
+  await post('estimate-lines', {
+    ...line,
+    description: 'Untaxed item',
+    quantity: '1',
+    unitCost: '50',
+    markupMethod: 'NONE',
+    markupValue: '0',
+    taxable: false,
+    expectedVersion: source.version + 1,
+  });
+  await page.goto(`/projects/${project.id}/estimate`);
+  await expect(page.locator('.finance-summary')).toContainText('$174.31');
+  await expect(page.locator('.finance-summary')).toContainText('$14.30');
+  await post('proposals', {
+    estimateRevisionId: source.id,
+    title: 'Browser proposal',
+    introduction: 'Welcome to your project.',
+    scope: 'Install finish package.',
+    exclusions: 'Appliances excluded.',
+    assumptions: 'Site ready.',
+    terms: 'Payment upon completion.',
+    expiryDate: '2026-12-31',
+  });
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Add line', exact: true })).toBeDisabled();
+  await page.goto(`/projects/${project.id}/proposals`);
+  await page.getByRole('button', { name: 'View / print' }).click();
+  const document = page.locator('.proposal-document');
+  for (const text of [
+    'Welcome to your project.',
+    'Install finish package.',
+    'Appliances excluded.',
+    'Site ready.',
+    'Payment upon completion.',
+    '2026-12-31',
+    '$174.31',
+  ])
+    await expect(document).toContainText(text);
+  await expect(document).not.toContainText('Internal finish cost');
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Issue', exact: true }).click();
+  await page.getByRole('button', { name: 'Mark accepted', exact: true }).click();
+  await page.getByRole('button', { name: 'Create budget', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Saved.');
+  await page.goto(`/projects/${project.id}/budget`);
+  await expect(page.locator('.finance-summary')).toContainText('$150.01');
+});
 test('mobile employee completes site workflow and My Hours stays available', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/scan/${shop}`);
@@ -172,7 +263,9 @@ test('an invalid saved timezone shows a warning and leaves Admin accessible', as
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await page.getByRole('button', { name: 'Open My Hours' }).click();
-    await expect(page.getByText('A timezone setting needs attention.', { exact: false })).toBeVisible();
+    await expect(
+      page.getByText('A timezone setting needs attention.', { exact: false }),
+    ).toBeVisible();
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'We couldn’t load this page.' })).toHaveCount(0);
     await page.getByRole('link', { name: 'Settings', exact: true }).first().click();

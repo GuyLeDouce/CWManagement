@@ -49,6 +49,21 @@ enum Capability {
   FILE_UPLOAD
   FILE_VIEW_INTERNAL
   NOTIFICATION_MANAGE
+  COST_CODE_VIEW
+  COST_CODE_MANAGE
+  ESTIMATE_VIEW
+  ESTIMATE_EDIT
+  ESTIMATE_APPROVE_INTERNAL
+  PROPOSAL_VIEW
+  PROPOSAL_CREATE
+  PROPOSAL_ISSUE
+  PROPOSAL_ACCEPT
+  BUDGET_VIEW
+  BUDGET_EDIT
+  JOB_COST_VIEW
+  ACTUAL_COST_VIEW
+  ACTUAL_COST_MANAGE
+  FINANCIAL_MARGIN_VIEW
 }
 
 enum ProjectStatus {
@@ -160,6 +175,60 @@ enum CostCodeType {
   OTHER
 }
 
+enum EstimateStatus {
+  DRAFT
+  INTERNAL_REVIEW
+  READY
+  SENT
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+  ARCHIVED
+}
+
+enum MarkupMethod {
+  NONE
+  PERCENT_ON_COST
+  FIXED
+}
+
+enum ProposalStatus {
+  DRAFT
+  ISSUED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  SUPERSEDED
+}
+
+enum BudgetVersionType {
+  ORIGINAL
+  CURRENT
+  REFORECAST
+  CHANGE_ORDER
+}
+
+enum CommitmentStatus {
+  DRAFT
+  COMMITTED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+}
+
+enum FinancialSourceType {
+  MANUAL
+  PURCHASE_ORDER
+  SUBCONTRACT
+  VENDOR_COMMITMENT
+  TIME
+  QUICKBOOKS_BILL
+  QUICKBOOKS_CREDIT_CARD
+  QUICKBOOKS_CHEQUE
+  QUICKBOOKS_PAYROLL
+  OTHER
+}
+
 enum SyncDirection {
   IMPORT
   EXPORT
@@ -199,39 +268,45 @@ enum TokenPurpose {
 }
 
 model User {
-  id                     String                @id @default(cuid())
-  firstName              String
-  lastName               String
-  email                  String                @unique
-  passwordHash           String?
-  active                 Boolean               @default(true)
-  roles                  Role[]
-  earliestStart          String                @default("07:00")
-  timezone               String?
-  createdAt              DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt              DateTime              @updatedAt @db.Timestamptz(3)
-  sessions               Session[]
-  tokens                 ActionToken[]
-  jobs                   EmployeeJobsite[]
-  tasks                  EmployeeTask[]
-  managedEmployees       PmEmployee[]          @relation("Manager")
-  managers               PmEmployee[]          @relation("Employee")
-  managedJobs            PmJobsite[]
-  workDays               WorkDay[]
-  segments               TimeSegment[]
-  approvals              Approval[]
-  visits                 SiteVisit[]
-  audit                  AuditLog[]
-  punches                PunchReceipt[]
-  exports                ExportBatch[]
-  employee               Employee?
-  capabilities           UserCapability[]
-  projectAssignments     ProjectAssignment[]
-  createdProjectTasks    ProjectTask[]         @relation("ProjectTaskCreator")
-  projectTaskAssignments ProjectTaskAssignee[]
-  dailyLogs              DailyLog[]
-  uploadedFiles          StoredFile[]
-  notifications          Notification[]
+  id                         String                @id @default(cuid())
+  firstName                  String
+  lastName                   String
+  email                      String                @unique
+  passwordHash               String?
+  active                     Boolean               @default(true)
+  roles                      Role[]
+  earliestStart              String                @default("07:00")
+  timezone                   String?
+  createdAt                  DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime              @updatedAt @db.Timestamptz(3)
+  sessions                   Session[]
+  tokens                     ActionToken[]
+  jobs                       EmployeeJobsite[]
+  tasks                      EmployeeTask[]
+  managedEmployees           PmEmployee[]          @relation("Manager")
+  managers                   PmEmployee[]          @relation("Employee")
+  managedJobs                PmJobsite[]
+  workDays                   WorkDay[]
+  segments                   TimeSegment[]
+  approvals                  Approval[]
+  visits                     SiteVisit[]
+  audit                      AuditLog[]
+  punches                    PunchReceipt[]
+  exports                    ExportBatch[]
+  employee                   Employee?
+  capabilities               UserCapability[]
+  projectAssignments         ProjectAssignment[]
+  createdProjectTasks        ProjectTask[]         @relation("ProjectTaskCreator")
+  projectTaskAssignments     ProjectTaskAssignee[]
+  dailyLogs                  DailyLog[]
+  uploadedFiles              StoredFile[]
+  notifications              Notification[]
+  estimatesCreated           EstimateRevision[]    @relation("EstimateRevisionCreator")
+  proposalsCreated           ProposalRevision[]    @relation("ProposalRevisionCreator")
+  proposalsAccepted          ProposalRevision[]    @relation("ProposalRevisionAcceptor")
+  budgetVersionsCreated      BudgetVersion[]       @relation("BudgetVersionCreator")
+  actualCostsCreated         ActualCost[]          @relation("ActualCostCreator")
+  forecastAdjustmentsCreated ForecastAdjustment[]  @relation("ForecastAdjustmentCreator")
 }
 
 model Employee {
@@ -292,43 +367,49 @@ model PmJobsite {
 }
 
 model Project {
-  id                 String                  @id @default(cuid())
-  name               String
-  number             String                  @unique
-  address            String?
-  overhead           Boolean                 @default(false)
-  active             Boolean                 @default(true)
-  employees          EmployeeJobsite[]
-  managers           PmJobsite[]
-  tasks              JobsiteTask[]
-  mappings           AccountingMapping[]
-  segments           TimeSegment[]
-  visits             SiteVisit[]
-  trucks             Truck[]
-  description        String?
-  projectType        String?
-  status             ProjectStatus           @default(ACTIVE)
-  stage              String?
-  municipality       String?
-  province           String?                 @default("ON")
-  postalCode         String?
-  startDate          DateTime?               @db.Date
-  targetCompletion   DateTime?               @db.Date
-  actualCompletion   DateTime?               @db.Date
-  contractAmount     Decimal?                @db.Decimal(14, 2)
-  internalNotes      String?
-  clientVisibleNotes String?
-  archivedAt         DateTime?               @db.Timestamptz(3)
-  createdAt          DateTime                @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime                @updatedAt @db.Timestamptz(3)
-  assignments        ProjectAssignment[]
-  contacts           ProjectContact[]
-  syncMappings       AccountingSyncMapping[]
-  scheduleTasks      ProjectTask[]
-  dailyLogs          DailyLog[]
-  files              StoredFile[]
-  notifications      Notification[]
-  activity           AuditLog[]
+  id                  String                  @id @default(cuid())
+  name                String
+  number              String                  @unique
+  address             String?
+  overhead            Boolean                 @default(false)
+  active              Boolean                 @default(true)
+  employees           EmployeeJobsite[]
+  managers            PmJobsite[]
+  tasks               JobsiteTask[]
+  mappings            AccountingMapping[]
+  segments            TimeSegment[]
+  visits              SiteVisit[]
+  trucks              Truck[]
+  description         String?
+  projectType         String?
+  status              ProjectStatus           @default(ACTIVE)
+  stage               String?
+  municipality        String?
+  province            String?                 @default("ON")
+  postalCode          String?
+  startDate           DateTime?               @db.Date
+  targetCompletion    DateTime?               @db.Date
+  actualCompletion    DateTime?               @db.Date
+  contractAmount      Decimal?                @db.Decimal(14, 2)
+  internalNotes       String?
+  clientVisibleNotes  String?
+  archivedAt          DateTime?               @db.Timestamptz(3)
+  createdAt           DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime                @updatedAt @db.Timestamptz(3)
+  assignments         ProjectAssignment[]
+  contacts            ProjectContact[]
+  syncMappings        AccountingSyncMapping[]
+  scheduleTasks       ProjectTask[]
+  dailyLogs           DailyLog[]
+  files               StoredFile[]
+  notifications       Notification[]
+  activity            AuditLog[]
+  estimates           Estimate[]
+  proposals           Proposal[]
+  budgets             Budget[]
+  commitments         Commitment[]
+  actualCosts         ActualCost[]
+  forecastAdjustments ForecastAdjustment[]
 
   @@map("Jobsite")
 }
@@ -383,6 +464,9 @@ model Contact {
   company         Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
   projects        ProjectContact[]
   taskAssignments ProjectTaskAssignee[]
+  proposals       ProposalRevision[]
+  commitments     Commitment[]
+  actualCosts     ActualCost[]
   createdAt       DateTime              @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime              @updatedAt @db.Timestamptz(3)
 
@@ -544,23 +628,296 @@ model Notification {
 }
 
 model CostCode {
-  id               String        @id @default(cuid())
-  code             String        @unique
-  name             String
-  description      String?
-  parentId         String?
-  type             CostCodeType  @default(OTHER)
-  active           Boolean       @default(true)
-  sortOrder        Int           @default(0)
-  quickBooksListId String?       @unique
-  parent           CostCode?     @relation("CostCodeTree", fields: [parentId], references: [id], onDelete: Restrict)
-  children         CostCode[]    @relation("CostCodeTree")
-  timeSegments     TimeSegment[]
-  timeActivities   Task[]
-  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
+  id                  String               @id @default(cuid())
+  code                String               @unique
+  name                String
+  description         String?
+  parentId            String?
+  type                CostCodeType         @default(OTHER)
+  active              Boolean              @default(true)
+  sortOrder           Int                  @default(0)
+  quickBooksListId    String?              @unique
+  parent              CostCode?            @relation("CostCodeTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children            CostCode[]           @relation("CostCodeTree")
+  timeSegments        TimeSegment[]
+  timeActivities      Task[]
+  estimateLines       EstimateLine[]
+  budgetLines         BudgetLine[]
+  commitmentLines     CommitmentLine[]
+  actualCosts         ActualCost[]
+  forecastAdjustments ForecastAdjustment[]
+  createdAt           DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(3)
 
   @@index([parentId, sortOrder])
+}
+
+model Estimate {
+  id             String             @id @default(cuid())
+  projectId      String
+  estimateNumber String
+  name           String
+  description    String?
+  project        Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  revisions      EstimateRevision[]
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
+
+  @@unique([projectId, estimateNumber])
+  @@index([projectId, updatedAt])
+}
+
+model EstimateRevision {
+  id                String             @id @default(cuid())
+  estimateId        String
+  revision          Int
+  status            EstimateStatus     @default(DRAFT)
+  validUntil        DateTime?          @db.Date
+  notes             String?
+  internalNotes     String?
+  taxRate           Decimal            @db.Decimal(7, 6)
+  version           Int                @default(1)
+  createdById       String
+  acceptedAt        DateTime?          @db.Timestamptz(3)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(3)
+  estimate          Estimate           @relation(fields: [estimateId], references: [id], onDelete: Restrict)
+  createdBy         User               @relation("EstimateRevisionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  sections          EstimateSection[]
+  lines             EstimateLine[]
+  proposalRevisions ProposalRevision[]
+  budgets           Budget[]
+
+  @@unique([estimateId, revision])
+  @@index([estimateId, status])
+}
+
+model EstimateSection {
+  id           String           @id @default(cuid())
+  revisionId   String
+  name         String
+  description  String?
+  sortOrder    Int              @default(0)
+  showSubtotal Boolean          @default(true)
+  revision     EstimateRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  lines        EstimateLine[]
+
+  @@index([revisionId, sortOrder])
+}
+
+model EstimateLine {
+  id                   String           @id @default(cuid())
+  revisionId           String
+  sectionId            String?
+  costCodeId           String
+  costCodeSnapshot     String
+  costCodeNameSnapshot String
+  costType             CostCodeType
+  description          String
+  clientDescription    String?
+  quantity             Decimal          @db.Decimal(18, 4)
+  unit                 String
+  unitCost             Decimal          @db.Decimal(18, 4)
+  markupMethod         MarkupMethod     @default(NONE)
+  markupValue          Decimal          @default(0) @db.Decimal(18, 4)
+  taxable              Boolean          @default(true)
+  optional             Boolean          @default(false)
+  allowance            Boolean          @default(false)
+  included             Boolean          @default(true)
+  sortOrder            Int              @default(0)
+  internalNotes        String?
+  revision             EstimateRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  section              EstimateSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  costCode             CostCode         @relation(fields: [costCodeId], references: [id], onDelete: Restrict)
+
+  @@index([revisionId, sortOrder])
+  @@index([costCodeId, costType])
+}
+
+model Proposal {
+  id             String             @id @default(cuid())
+  projectId      String
+  proposalNumber String
+  title          String
+  project        Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  revisions      ProposalRevision[]
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
+
+  @@unique([projectId, proposalNumber])
+}
+
+model ProposalRevision {
+  id                    String           @id @default(cuid())
+  proposalId            String
+  estimateRevisionId    String
+  revision              Int
+  status                ProposalStatus   @default(DRAFT)
+  version               Int              @default(1)
+  issueDate             DateTime?        @db.Date
+  expiryDate            DateTime?        @db.Date
+  introduction          String?
+  scope                 String?
+  exclusions            String?
+  assumptions           String?
+  terms                 String?
+  clientId              String?
+  clientNameSnapshot    String
+  projectNameSnapshot   String
+  projectNumberSnapshot String
+  companySnapshot       Json
+  sectionsSnapshot      Json
+  subtotal              Decimal          @db.Decimal(18, 2)
+  taxRate               Decimal          @db.Decimal(7, 6)
+  taxAmount             Decimal          @db.Decimal(18, 2)
+  total                 Decimal          @db.Decimal(18, 2)
+  createdById           String
+  acceptedAt            DateTime?        @db.Timestamptz(3)
+  acceptedById          String?
+  acceptedByName        String?
+  createdAt             DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime         @updatedAt @db.Timestamptz(3)
+  proposal              Proposal         @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  estimateRevision      EstimateRevision @relation(fields: [estimateRevisionId], references: [id], onDelete: Restrict)
+  client                Contact?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  createdBy             User             @relation("ProposalRevisionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  acceptedBy            User?            @relation("ProposalRevisionAcceptor", fields: [acceptedById], references: [id], onDelete: Restrict)
+  budgets               Budget[]
+
+  @@unique([proposalId, revision])
+  @@index([estimateRevisionId])
+}
+
+model Budget {
+  id                 String            @id @default(cuid())
+  projectId          String
+  estimateRevisionId String?
+  proposalRevisionId String?
+  name               String
+  active             Boolean           @default(true)
+  project            Project           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  estimateRevision   EstimateRevision? @relation(fields: [estimateRevisionId], references: [id], onDelete: Restrict)
+  proposalRevision   ProposalRevision? @relation(fields: [proposalRevisionId], references: [id], onDelete: Restrict)
+  versions           BudgetVersion[]
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @db.Timestamptz(3)
+
+  @@index([projectId, active])
+}
+
+model BudgetVersion {
+  id          String            @id @default(cuid())
+  budgetId    String
+  version     Int
+  type        BudgetVersionType
+  description String?
+  createdById String
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+  budget      Budget            @relation(fields: [budgetId], references: [id], onDelete: Restrict)
+  createdBy   User              @relation("BudgetVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines       BudgetLine[]
+
+  @@unique([budgetId, version])
+}
+
+model BudgetLine {
+  id                   String        @id @default(cuid())
+  budgetVersionId      String
+  costCodeId           String
+  costCodeSnapshot     String
+  costCodeNameSnapshot String
+  costType             CostCodeType
+  description          String
+  amount               Decimal       @db.Decimal(18, 2)
+  budgetVersion        BudgetVersion @relation(fields: [budgetVersionId], references: [id], onDelete: Cascade)
+  costCode             CostCode      @relation(fields: [costCodeId], references: [id], onDelete: Restrict)
+
+  @@index([budgetVersionId])
+  @@index([costCodeId, costType])
+}
+
+model Commitment {
+  id              String              @id @default(cuid())
+  projectId       String
+  vendorContactId String?
+  status          CommitmentStatus    @default(DRAFT)
+  sourceType      FinancialSourceType
+  sourceId        String?
+  reference       String?
+  description     String?
+  committedDate   DateTime?           @db.Date
+  externalSystem  String?
+  externalId      String?
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  vendorContact   Contact?            @relation(fields: [vendorContactId], references: [id], onDelete: Restrict)
+  lines           CommitmentLine[]
+  createdAt       DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime            @updatedAt @db.Timestamptz(3)
+
+  @@unique([externalSystem, externalId])
+  @@index([projectId, status])
+}
+
+model CommitmentLine {
+  id              String       @id @default(cuid())
+  commitmentId    String
+  costCodeId      String
+  costType        CostCodeType
+  description     String
+  committedAmount Decimal      @db.Decimal(18, 2)
+  consumedAmount  Decimal      @default(0) @db.Decimal(18, 2)
+  commitment      Commitment   @relation(fields: [commitmentId], references: [id], onDelete: Restrict)
+  costCode        CostCode     @relation(fields: [costCodeId], references: [id], onDelete: Restrict)
+  actualCosts     ActualCost[]
+
+  @@index([costCodeId, costType])
+}
+
+model ActualCost {
+  id                     String              @id @default(cuid())
+  projectId              String
+  costCodeId             String
+  costType               CostCodeType
+  commitmentLineId       String?
+  amount                 Decimal             @db.Decimal(18, 2)
+  transactionDate        DateTime            @db.Date
+  sourceType             FinancialSourceType
+  sourceExternalId       String?
+  externalSystem         String?
+  quickBooksTxnId        String?
+  quickBooksEditSequence String?
+  vendorContactId        String?
+  employeeId             String?
+  description            String
+  createdById            String?
+  reversedAt             DateTime?           @db.Timestamptz(3)
+  createdAt              DateTime            @default(now()) @db.Timestamptz(3)
+  project                Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  costCode               CostCode            @relation(fields: [costCodeId], references: [id], onDelete: Restrict)
+  commitmentLine         CommitmentLine?     @relation(fields: [commitmentLineId], references: [id], onDelete: Restrict)
+  vendorContact          Contact?            @relation(fields: [vendorContactId], references: [id], onDelete: Restrict)
+  createdBy              User?               @relation("ActualCostCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([externalSystem, sourceExternalId])
+  @@index([projectId, transactionDate])
+  @@index([costCodeId, costType])
+  @@index([quickBooksTxnId])
+}
+
+model ForecastAdjustment {
+  id          String       @id @default(cuid())
+  projectId   String
+  costCodeId  String
+  costType    CostCodeType
+  amount      Decimal      @db.Decimal(18, 2)
+  reason      String
+  createdById String
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  costCode    CostCode     @relation(fields: [costCodeId], references: [id], onDelete: Restrict)
+  createdBy   User         @relation("ForecastAdjustmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, costCodeId, costType])
 }
 
 model Task {
@@ -771,8 +1128,16 @@ model ExportItem {
 }
 
 model Settings {
-  id              String @id @default("company")
-  timezone        String @default("America/Toronto")
-  reportRecipient String @default("")
-  weekStartsOn    Int    @default(1)
+  id                 String  @id @default("company")
+  timezone           String  @default("America/Toronto")
+  reportRecipient    String  @default("")
+  weekStartsOn       Int     @default(1)
+  taxRate            Decimal @default(0.13) @db.Decimal(7, 6)
+  estimatePrefix     String  @default("EST")
+  proposalPrefix     String  @default("P")
+  nextEstimateNumber Int     @default(1)
+  nextProposalNumber Int     @default(1)
+  legalName          String  @default("Cedar Winds Design~Build")
+  companyAddress     String  @default("")
+  proposalTerms      String  @default("")
 }

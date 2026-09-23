@@ -8,9 +8,9 @@ Branding and scalable shell; project/contact/company model; flexible assignments
 
 Meaningful project activity, project settings/relationships, Schedule V1 with dependencies and assignees, mobile daily logs, file/photo metadata and development storage, notification inbox, expanded capabilities, isolated PostgreSQL CI, and hierarchical cost-code foundation. Durable production object storage and automated due-date notification delivery remain follow-up deployment work.
 
-## Phase 3 — Estimating and budget
+## Phase 3 — Estimating and budget (implemented)
 
-Hierarchical cost codes, estimate versions, proposals, approved budgets, labour-rate costing, and Budget/Committed/Actual/Forecast/Variance reporting foundation.
+Cost-code administration/import, estimate and proposal snapshot revisions, print-ready proposal output, approved original/current budgets, commitment/actual ledgers, and Budget/Committed/Actual/Forecast/Variance reporting. Employee costing-rate configuration remains deferred until Cedar Winds defines protected rates and burden policy.
 
 ## Phase 4 — Purchasing and change management
 

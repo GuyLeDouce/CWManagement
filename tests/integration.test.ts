@@ -17,24 +17,214 @@ import { transaction } from '../src/lib/db';
 import { resetPassword, issueToken } from '../src/lib/auth';
 import { state, myHours } from '../src/lib/queries';
 import { saveAssignment, saveDailyLog, saveProjectTask } from '../src/lib/operations';
+import {
+  createBudget,
+  createEstimate,
+  createEstimateRevision,
+  createProposal,
+  importCostCodes,
+  proposalAction,
+  saveCostCode,
+  saveEstimateLine,
+} from '../src/lib/financial';
 const suffix = randomUUID().slice(0, 8);
 describe('project operations', () => {
   it('publishes project activity and targeted notifications for assignments and schedule work', async () => {
     const f = await fixture();
-    await saveAssignment(f.owner, { action: 'add', projectId: f.job.id, userId: f.user.id, role: 'FIELD_STAFF', primary: false });
-    const task = await saveProjectTask(f.owner, { projectId: f.job.id, name: 'Frame second floor walls', status: 'READY', startDate: null, endDate: null, actualStartDate: null, actualEndDate: null, milestone: false, sortOrder: 10, userIds: [f.user.id], contactIds: [], predecessorId: null, dependencyType: 'FINISH_TO_START', lagDays: 0, description: null });
-    await saveDailyLog(f.owner, { projectId: f.job.id, date: new Date('2026-09-22T12:00:00Z'), workCompleted: 'Framing progressed.', siteConditions: null, weatherNotes: null, manpowerNotes: null, delaysIssues: null, deliveries: null, visitors: null, inspections: null, generalNotes: null, clientVisible: false });
-    expect(await db.auditLog.count({ where: { projectId: f.job.id, description: { not: null } } })).toBeGreaterThanOrEqual(3);
-    expect(await db.notification.count({ where: { userId: f.user.id, projectId: f.job.id } })).toBeGreaterThanOrEqual(2);
-    expect(await db.projectTaskAssignee.count({ where: { taskId: task.id, userId: f.user.id } })).toBe(1);
+    await saveAssignment(f.owner, {
+      action: 'add',
+      projectId: f.job.id,
+      userId: f.user.id,
+      role: 'FIELD_STAFF',
+      primary: false,
+    });
+    const task = await saveProjectTask(f.owner, {
+      projectId: f.job.id,
+      name: 'Frame second floor walls',
+      status: 'READY',
+      startDate: null,
+      endDate: null,
+      actualStartDate: null,
+      actualEndDate: null,
+      milestone: false,
+      sortOrder: 10,
+      userIds: [f.user.id],
+      contactIds: [],
+      predecessorId: null,
+      dependencyType: 'FINISH_TO_START',
+      lagDays: 0,
+      description: null,
+    });
+    await saveDailyLog(f.owner, {
+      projectId: f.job.id,
+      date: new Date('2026-09-22T12:00:00Z'),
+      workCompleted: 'Framing progressed.',
+      siteConditions: null,
+      weatherNotes: null,
+      manpowerNotes: null,
+      delaysIssues: null,
+      deliveries: null,
+      visitors: null,
+      inspections: null,
+      generalNotes: null,
+      clientVisible: false,
+    });
+    expect(
+      await db.auditLog.count({ where: { projectId: f.job.id, description: { not: null } } }),
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      await db.notification.count({ where: { userId: f.user.id, projectId: f.job.id } }),
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      await db.projectTaskAssignee.count({ where: { taskId: task.id, userId: f.user.id } }),
+    ).toBe(1);
   });
 
   it('prevents cyclic schedule dependencies', async () => {
     const f = await fixture();
-    const base = { projectId: f.job.id, status: 'NOT_STARTED' as const, startDate: null, endDate: null, actualStartDate: null, actualEndDate: null, milestone: false, sortOrder: 0, userIds: [], contactIds: [], predecessorId: null, dependencyType: 'FINISH_TO_START' as const, lagDays: 0, description: null };
+    const base = {
+      projectId: f.job.id,
+      status: 'NOT_STARTED' as const,
+      startDate: null,
+      endDate: null,
+      actualStartDate: null,
+      actualEndDate: null,
+      milestone: false,
+      sortOrder: 0,
+      userIds: [],
+      contactIds: [],
+      predecessorId: null,
+      dependencyType: 'FINISH_TO_START' as const,
+      lagDays: 0,
+      description: null,
+    };
     const first = await saveProjectTask(f.owner, { ...base, name: 'First' });
-    const second = await saveProjectTask(f.owner, { ...base, name: 'Second', predecessorId: first.id });
-    await expect(saveProjectTask(f.owner, { ...base, id: first.id, name: 'First', predecessorId: second.id })).rejects.toThrow('schedule cycle');
+    const second = await saveProjectTask(f.owner, {
+      ...base,
+      name: 'Second',
+      predecessorId: first.id,
+    });
+    await expect(
+      saveProjectTask(f.owner, { ...base, id: first.id, name: 'First', predecessorId: second.id }),
+    ).rejects.toThrow('schedule cycle');
+  });
+});
+describe('financial revision lifecycle', () => {
+  it('previews and commits Cedar Winds cost codes without silent replacement', async () => {
+    const f = await fixture();
+    const csv = `code,name,type,active,sortOrder\n03-${suffix},Concrete,MATERIAL,true,10`;
+    const preview = await importCostCodes(f.owner, { csv, commit: false });
+    if (!('errors' in preview)) throw new Error('Expected import preview.');
+    expect(preview.creates).toBe(1);
+    expect(preview.errors).toEqual([]);
+    await importCostCodes(f.owner, { csv, commit: true, previewToken: preview.previewToken });
+    expect(await db.costCode.findUnique({ where: { code: `03-${suffix}` } })).not.toBeNull();
+    const invalid = await importCostCodes(f.owner, {
+      csv: `code,name\nX-${suffix},One\nX-${suffix},Two`,
+      commit: false,
+    });
+    if (!('errors' in invalid)) throw new Error('Expected invalid import preview.');
+    expect(invalid.errors[0].message).toContain('Duplicate');
+  });
+
+  it('rejects cyclic CSV hierarchies atomically and allows clearing a parent', async () => {
+    const f = await fixture();
+    const parent = `P-${suffix}`,
+      child = `C-${suffix}`;
+    const commit = async (csv: string) => {
+      const preview = await importCostCodes(f.owner, { csv, commit: false });
+      if (!('previewToken' in preview)) throw new Error('Expected preview.');
+      return importCostCodes(f.owner, { csv, commit: true, previewToken: preview.previewToken });
+    };
+    await commit(`code,name,parentCode\n${parent},Parent,\n${child},Child,${parent}`);
+    await expect(commit(`code,name,parentCode\n${parent},Changed,${child}`)).rejects.toThrow(
+      'cycle',
+    );
+    expect((await db.costCode.findUniqueOrThrow({ where: { code: parent } })).name).toBe('Parent');
+    await expect(commit(`code,name,parentCode\n${child},Child,${child}`)).rejects.toThrow('cycle');
+    await commit(`code,name,parentCode\n${child},Child,`);
+    expect((await db.costCode.findUniqueOrThrow({ where: { code: child } })).parentId).toBeNull();
+  });
+
+  it('preserves estimate and proposal snapshots and creates original/current budgets', async () => {
+    const f = await fixture();
+    const code = await saveCostCode(f.owner, {
+      code: `06-${suffix}`,
+      name: 'Framing',
+      description: null,
+      parentId: null,
+      type: 'LABOUR',
+      active: true,
+      sortOrder: 0,
+    });
+    const estimate = await createEstimate(f.owner, {
+      projectId: f.job.id,
+      name: 'Contract estimate',
+      description: null,
+    });
+    const source = await db.estimateRevision.findUniqueOrThrow({
+      where: { id: estimate.revisions[0].id },
+      include: { sections: true },
+    });
+    const pricing = {
+      revisionId: source.id,
+      sectionId: source.sections[0].id,
+      costCodeId: code.id,
+      costType: 'LABOUR' as const,
+      description: 'Framing labour',
+      clientDescription: 'Framing',
+      quantity: '10',
+      unit: 'HR',
+      unitCost: '50',
+      markupMethod: 'PERCENT_ON_COST' as const,
+      markupValue: '20',
+      taxable: true,
+      optional: false,
+      allowance: false,
+      included: true,
+      sortOrder: 0,
+      expectedVersion: source.version,
+    };
+    await saveEstimateLine(f.owner, pricing);
+    const copy = await createEstimateRevision(f.owner, source.id);
+    expect(await db.estimateLine.count({ where: { revisionId: source.id } })).toBe(1);
+    expect(await db.estimateLine.count({ where: { revisionId: copy.id } })).toBe(1);
+    const proposal = await createProposal(f.owner, {
+      estimateRevisionId: copy.id,
+      clientId: null,
+      title: 'Construction proposal',
+      introduction: null,
+      scope: null,
+      exclusions: null,
+      assumptions: null,
+      terms: null,
+      expiryDate: null,
+    });
+    const proposalRevision = proposal.revisions[0];
+    const locked = await db.estimateRevision.findUniqueOrThrow({ where: { id: copy.id } });
+    expect(locked.status).toBe('READY');
+    await expect(
+      saveEstimateLine(f.owner, {
+        ...pricing,
+        revisionId: copy.id,
+        expectedVersion: locked.version,
+        unitCost: '999',
+      }),
+    ).rejects.toThrow('locked pricing');
+    await proposalAction(f.owner, proposalRevision.id, 'issue');
+    await proposalAction(f.owner, proposalRevision.id, 'accept');
+    const budget = await createBudget(f.owner, proposalRevision.id);
+    expect(await db.budgetVersion.count({ where: { budgetId: budget.id } })).toBe(2);
+    const budgetLines = await db.budgetLine.findMany({
+      where: { budgetVersion: { budgetId: budget.id } },
+    });
+    expect(budgetLines.map((line) => line.amount.toFixed(2))).toEqual(['500.00', '500.00']);
+    await expect(createBudget(f.owner, proposalRevision.id)).rejects.toThrow('already exists');
+    const snapshot = await db.proposalRevision.findUniqueOrThrow({
+      where: { id: proposalRevision.id },
+    });
+    expect(snapshot.subtotal.toFixed(2)).toBe('600.00');
+    expect(snapshot.total.toFixed(2)).toBe('678.00');
   });
 });
 describe('manually entered account timezones', () => {

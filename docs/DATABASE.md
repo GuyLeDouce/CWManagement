@@ -34,3 +34,9 @@ The Phase 2 `CostCode` hierarchy is the foundation Phase 3 will reference. `Task
 Migration `202609220001_cwmanagement_foundation` is additive and keeps existing time data. Production uses `prisma migrate deploy`; never use `db push`. Backups and a staging deploy are required before production migration.
 
 Migration `202609220002_project_operations` adds Phase 2 enums, capabilities, activity fields, schedule/dependency tables, daily logs, stored-file metadata, notifications, hierarchical cost codes, and optional cost-code links. Database checks prevent reversed task dates, self-dependencies, invalid assignee shapes, and negative file sizes.
+
+## Phase 3 financial records
+
+`Estimate` and `Proposal` are numbering/family records. Their revision records preserve versions; estimate lines snapshot cost-code labels, and proposal JSON snapshots preserve issued client wording and pricing. `BudgetVersion` stores deliberate ORIGINAL, CURRENT, REFORECAST, or future CHANGE_ORDER snapshots. `CommitmentLine.consumedAmount` and `ActualCost.commitmentLineId` prevent fulfilled commitments from being counted twice. `ActualCost` normalizes manual, time, and future QuickBooks sources with external idempotency keys. `ForecastAdjustment` records deliberate estimates-to-complete.
+
+Migration `20260922211243_financial_backbone` adds financial capabilities/settings, estimate and proposal revisions, budget snapshots, commitments, actual costs, forecast adjustments, Decimal fields, idempotency indexes, and database financial checks.
