@@ -695,7 +695,7 @@ function DocumentEditor({
                   <input
                     type="number"
                     required
-                    min="0"
+                    min={change ? undefined : '0'}
                     step=".0001"
                     value={line.unitCost}
                     onChange={(e) => patch(i, { unitCost: e.target.value })}
@@ -719,7 +719,6 @@ function DocumentEditor({
                       Markup value
                       <input
                         type="number"
-                        min="0"
                         step=".0001"
                         value={line.markupValue || '0'}
                         onChange={(e) => patch(i, { markupValue: e.target.value })}

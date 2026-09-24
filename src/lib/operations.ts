@@ -436,6 +436,8 @@ export async function saveDailyLog(actor: Actor, input: z.infer<typeof dailyLogS
       ? await tx.dailyLog.findFirst({ where: { id: input.id, projectId: input.projectId } })
       : null;
     if (input.id) ensure(before, 'Daily log not found.', 404);
+    if (input.clientVisible || before?.clientVisible)
+      await requireCapability(actor, 'CLIENT_CONTENT_PUBLISH', tx);
     const { id: logId, ...fields } = input;
     const log = logId
       ? await tx.dailyLog.update({ where: { id: logId }, data: fields })
@@ -472,6 +474,26 @@ export async function archiveFile(actor: Actor, input: z.infer<typeof fileAction
       where: { id: input.id, projectId: input.projectId, archivedAt: null },
     });
     ensure(before, 'File not found.', 404);
+    if (before.visibility === 'CLIENT') {
+      await requireCapability(actor, 'CLIENT_CONTENT_PUBLISH', tx);
+      ensure(
+        !(await tx.selectionOption.findFirst({
+          where: {
+            attachmentIds: { has: before.id },
+            selection: { OR: [{ publishedAt: { not: null } }, { decisions: { some: {} } }] },
+          },
+        })),
+        'An approved selection attachment cannot be archived.',
+        409,
+      );
+      ensure(
+        !(await tx.changeOrderRevision.findFirst({
+          where: { attachmentIds: { has: before.id }, status: 'ACCEPTED' },
+        })),
+        'An accepted change order attachment cannot be archived.',
+        409,
+      );
+    }
     const record = await tx.storedFile.update({
       where: { id: input.id },
       data: { archivedAt: new Date() },

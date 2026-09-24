@@ -38,7 +38,10 @@ export function checkEmailConfiguration() {
 export async function sendEmail(mail: Mail) {
   checkEmailConfiguration();
   if (process.env.EMAIL_PROVIDER === 'console' && process.env.NODE_ENV !== 'production') {
-    console.info('[development email]', JSON.stringify(mail));
+    console.info('[development email]', {
+      subject: mail.subject,
+      attachments: mail.attachments?.length || 0,
+    });
     return;
   }
   try {

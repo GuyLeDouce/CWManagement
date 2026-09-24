@@ -31,7 +31,7 @@ The source-of-truth decisions are in [Architecture](docs/ARCHITECTURE.md), [Data
 
 Project workspaces now include Purchase Orders (including Work Orders/Subcontracts), Change Orders, and Budget/job-cost reports. Issued purchasing feeds the existing commitment ledger; invoices consume commitments atomically. Accepted change orders separately adjust current contract revenue and current internal budget. Original baselines and issued history remain preserved. See [Purchasing](docs/PURCHASING.md), [Change Orders](docs/CHANGE_ORDERS.md), and [Job Costing](docs/JOB_COSTING.md).
 
-Phase 4 requires migration `202609240001_purchasing_change_management`. Railway already runs `npm run db:migrate` before deployment. Back up and stage first; no new environment variables are required. Issuing records a document state; print/share delivery is manual. Client/Trade Portals and QuickBooks synchronization remain deferred.
+Phase 4 requires migration `202609240001_purchasing_change_management`. Railway already runs `npm run db:migrate` before deployment. Back up and stage first; no new environment variables are required. Issuing records a document state; print/share delivery is manual. Phase 5 implements Client Portal, allowances/selections, authenticated CO approval and project messages. Trade Portal and QuickBooks remain deferred. Phase 5 also requires migration `202609240002_client_selections_portal`; see docs/CLIENT_PORTAL.md and docs/SELECTIONS.md. No new environment variables are required.
 
 ## Local setup
 
@@ -61,7 +61,7 @@ npm run dev
 
 Open [localhost:3000](http://localhost:3000) and sign in with your configured owner credentials. The seed creates the owner, the shop QR, and three overhead cost centres. It deliberately does not add fake employees, example projects, wages, or shared passwords. Rerunning it never resets an existing password or role.
 
-`EMAIL_PROVIDER=console` prints development emails in your local terminal. This provider is refused in production. Use SMTP to test actual delivery.
+`EMAIL_PROVIDER=console` logs email subject/attachment-count metadata only in your local terminal, without message bodies or setup tokens. This provider is refused in production. Use SMTP to test actual delivery.
 
 ## Deploy to Railway — step by step
 

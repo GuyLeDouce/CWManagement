@@ -163,10 +163,26 @@ roleCapabilities.ESTIMATOR!.push(
   'CHANGE_ORDER_EDIT',
   'CHANGE_ORDER_APPROVE_INTERNAL',
 );
+const portalManagement: Capability[] = [
+  'CLIENT_ACCESS_MANAGE',
+  'CLIENT_CONTENT_PUBLISH',
+  'SELECTION_VIEW',
+  'SELECTION_CREATE',
+  'SELECTION_EDIT',
+  'SELECTION_PUBLISH',
+  'SELECTION_APPROVE_INTERNAL',
+  'CLIENT_MESSAGE_VIEW',
+  'CLIENT_MESSAGE_SEND',
+];
+for (const role of ['ADMIN', 'CONTROLLER', 'PM', 'PROJECT_MANAGER'] as Role[])
+  roleCapabilities[role]!.push(...portalManagement);
+roleCapabilities.ESTIMATOR!.push('SELECTION_VIEW', 'SELECTION_CREATE', 'SELECTION_EDIT');
 export function roleGrants(user: Pick<User, 'roles'>, capability: Capability) {
+  if (user.roles.includes('CLIENT')) return capability === 'CLIENT_PORTAL_ACCESS';
   return user.roles.some((role) => roleCapabilities[role]?.includes(capability));
 }
 export async function can(user: Actor, capability: Capability, tx: Tx = db) {
+  if (user.roles.includes('CLIENT')) return capability === 'CLIENT_PORTAL_ACCESS' && user.active;
   const override = await tx.userCapability.findUnique({
     where: { userId_capability: { userId: user.id, capability } },
   });
@@ -176,6 +192,7 @@ export async function requireCapability(user: Actor, capability: Capability, tx:
   ensure(await can(user, capability, tx), 'You do not have permission to do this.', 403);
 }
 export async function capabilities(user: Actor, tx: Tx = db) {
+  if (user.roles.includes('CLIENT')) return ['CLIENT_PORTAL_ACCESS'] as Capability[];
   const overrides = await tx.userCapability.findMany({ where: { userId: user.id } });
   return Object.values(Capability).filter((capability) => {
     const override = overrides.find((item) => item.capability === capability);

@@ -1,5 +1,11 @@
 # Database Source of Truth
 
+## Phase 5 additions
+
+Migration `202609240002_client_selections_portal` adds ClientProjectAccess, Allowance, Selection, SelectionOption, SelectionDecision, ClientApproval, Conversation, ProjectMessage and ConversationRead. Contact.portalUserId now references User; resolve any preexisting orphan portal IDs deliberately before deployment. Allowance source estimate/budget links and cost codes have foreign keys. Unique project/user and project/contact grants, one selection per allowance, one decision per selection and one client approval per CO revision prevent duplicate allocation/evidence.
+
+ProjectTask adds clientVisible/clientTitle/clientDescription; DailyLog adds clientSummary; Project adds clientTargetCompletion. Triggers protect published options, decided selection wording, published allowances and approval/message evidence. Amount/version/action checks supplement application validation. CO constraints now permit signed costs/markup/totals for credits while preserving positive quantities and arithmetic/tax/version checks. Original Phase 4 migrations remain unchanged.
+
 ## Core records
 
 - `User`: login identity with multiple roles and explicit capability grants/denials.

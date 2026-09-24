@@ -73,11 +73,13 @@ export function ActionButton({
   children,
   className = '',
   onDone,
+  disabled = false,
 }: {
   action: () => Promise<unknown>;
   children: ReactNode;
   className?: string;
   onDone?: () => void;
+  disabled?: boolean;
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
@@ -86,7 +88,7 @@ export function ActionButton({
     <>
       <button
         className={className}
-        disabled={busy}
+        disabled={busy || disabled}
         onClick={async () => {
           setBusy(true);
           setError('');

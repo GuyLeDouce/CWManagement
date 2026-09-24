@@ -2,4 +2,4 @@
 
 Notifications are durable per-user inbox records with type, title, message, action URL, project/entity context, created time, and nullable `readAt`. The inbox supports unread count, mark read/unread, and mark all read.
 
-Phase 2 generates targeted notifications when a user is assigned to a project or schedule task. It deliberately does not generate a notification for every edit. Future due/overdue scanners, email, and push delivery should consume the same notification/event semantics and record delivery attempts separately rather than overloading the inbox record.
+Phase 2 generates targeted project/task assignment notifications. Phase 5 adds invitations, selection publication, issued COs, newly published content and client-facing staff messages. Client decisions, approvals and messages notify scoped internal staff. Client emails are generic portal links sent after commit; failures do not roll back authoritative inbox records. Repeated reads generate nothing. Deadline scanners, email retry outbox and push delivery remain future work.

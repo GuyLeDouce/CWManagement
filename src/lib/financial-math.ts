@@ -2,6 +2,8 @@ import { MarkupMethod, Prisma } from '@prisma/client';
 const Decimal = Prisma.Decimal;
 export const money = (value: Prisma.Decimal.Value) =>
   new Decimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+export const selectionVariance = (allowance: Prisma.Decimal.Value, price: Prisma.Decimal.Value) =>
+  money(money(price).sub(money(allowance)));
 export function lineAmounts(input: {
   quantity: Prisma.Decimal.Value;
   unitCost: Prisma.Decimal.Value;

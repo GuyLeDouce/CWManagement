@@ -27,6 +27,10 @@ export function useApi<T>(path: string, refreshMs = 0) {
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
+    if (!path) {
+      setLoading(false);
+      return;
+    }
     try {
       setData(await api<T>(path));
       setError('');

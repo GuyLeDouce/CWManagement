@@ -20,9 +20,9 @@ Restricted: `CLIENT_PORTAL_ACCESS`, `ACCOUNTING_ACCESS`, `SETTINGS_MANAGE`.
 
 ## Scope
 
-`PROJECT_VIEW_ASSIGNED` means a user must have a `ProjectAssignment` or a retained legacy time assignment. Client and trade access will additionally require a linked contact/company and a portal-specific project authorization. Financial, payroll, internal-note, and cross-project fields must never be selected into portal DTOs.
+`PROJECT_VIEW_ASSIGNED` requires a ProjectAssignment or retained legacy time assignment. Clients instead require explicit ClientProjectAccess linked to their Contact. Trade authorization remains deferred. Financial, payroll, internal-note and cross-project fields must never enter portal DTOs.
 
-Every Phase 2 operation checks both a capability and `requireProjectAccess`. Notifications are always restricted by `userId`; file retrieval checks `FILE_VIEW_INTERNAL` and project scope before reading bytes. UI capability checks improve navigation but are never the authorization boundary.
+Internal operations check capabilities and requireProjectAccess. Notifications are restricted by userId. Internal downloads require FILE_VIEW_INTERNAL and project scope; client downloads require an active portal grant and CLIENT visibility. UI checks are never the authorization boundary.
 
 ## Remaining role checks
 
@@ -33,6 +33,14 @@ Roles remain legitimate for clock modes (`SHOP`, `SITE`, `OFFICE`) and for the O
 Financial authorization uses `COST_CODE_VIEW`, `COST_CODE_MANAGE`, `ESTIMATE_VIEW`, `ESTIMATE_CREATE`, `ESTIMATE_EDIT`, `ESTIMATE_APPROVE_INTERNAL`, `PROPOSAL_VIEW`, `PROPOSAL_CREATE`, `PROPOSAL_ISSUE`, `PROPOSAL_ACCEPT`, `BUDGET_VIEW`, `BUDGET_EDIT`, `JOB_COST_VIEW`, `ACTUAL_COST_VIEW`, `ACTUAL_COST_MANAGE`, and `FINANCIAL_MARGIN_VIEW`. Owner receives all capabilities. Controller receives broad accounting/job-cost access. Estimator receives estimate/proposal and margin access. PM receives assigned-project financial reporting without accounting mutation or margin access. Field, shop, clients, and trades receive no financial capabilities.
 
 ## Phase 4 capabilities
+
+## Phase 5 capabilities and client boundary
+
+Internal capabilities are CLIENT_ACCESS_MANAGE, CLIENT_CONTENT_PUBLISH, SELECTION_VIEW, SELECTION_CREATE, SELECTION_EDIT, SELECTION_PUBLISH, SELECTION_APPROVE_INTERNAL, CLIENT_MESSAGE_VIEW and CLIENT_MESSAGE_SEND. Owner receives all; Admin, Controller, PM and Project Manager receive this bundle subject to existing project scope. Estimator receives selection view/create/edit. Field, Shop, Client and trades gain none. Internal overrides remain available.
+
+CLIENT is a separate restricted identity: no internal capability can be granted through an override or mixed role bundle. Dedicated portal authorization additionally requires exactly the CLIENT role, active contact/user/project and an explicit active ClientProjectAccess grant. Issued CO approval also requires the revision's named client Contact. All portal/file endpoints enforce this on the server; internal API paths are denied before dispatch. Client content is selected through allowlisted DTOs and never receives internal ledgers or margins.
+
+## Phase 4 purchasing capability details
 
 PO and WO independently use `PURCHASE_ORDER_*` and `WORK_ORDER_*` VIEW/CREATE/EDIT/APPROVE/ISSUE capabilities. CO uses CHANGE_ORDER_VIEW/CREATE/EDIT/APPROVE_INTERNAL/ISSUE/ACCEPT. Ledgers use COMMITMENT_VIEW, COMMITMENT_MANAGE and ACTUAL_COST_RECONCILE in addition to existing ACTUAL_COST_VIEW/MANAGE. Reversal requires ACTUAL_COST_RECONCILE plus project access and a reason. Cancelling an issued purchasing family requires its APPROVE capability and COMMITMENT_MANAGE. Attachment selection additionally requires FILE_VIEW_INTERNAL.
 

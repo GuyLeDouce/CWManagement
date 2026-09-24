@@ -54,9 +54,9 @@ export function AuthForm({
           starts here.
         </h1>
         <p>
-          A simpler way to keep time.
+          Your project. Your team.
           <br />
-          From the shop to the jobsite.
+          One place to stay connected.
         </p>
         <div className="auth-rule" />
         <small>CEDAR WINDS DESIGN~BUILD</small>
@@ -65,7 +65,7 @@ export function AuthForm({
         <div className="auth-box">
           <Brand />
           <div className="auth-heading">
-            <span className="eyebrow">YOUR WORKDAY, SIMPLIFIED</span>
+            <span className="eyebrow">WELCOME TO CEDAR WINDS</span>
             <h1>
               {kind === 'login'
                 ? 'Welcome back.'

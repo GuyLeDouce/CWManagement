@@ -7,5 +7,6 @@ export default async function Page({ params }: { params: Promise<{ path?: string
   const user = await currentUser();
   if (!user)
     redirect(`/login?next=${encodeURIComponent('/' + path.map(encodeURIComponent).join('/'))}`);
+  if (user.roles.includes('CLIENT')) redirect('/client');
   return <Workspace path={path} />;
 }

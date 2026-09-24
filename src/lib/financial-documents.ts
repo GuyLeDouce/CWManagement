@@ -146,6 +146,7 @@ export async function documentEvent(
     },
   });
   const recipients = users.filter((user) => {
+    if (user.roles.includes('CLIENT')) return false;
     const has = (capability: Capability) =>
       user.capabilities.find((x) => x.capability === capability)?.granted ??
       roleGrants(user, capability);

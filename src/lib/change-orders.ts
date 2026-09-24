@@ -1,10 +1,11 @@
 import { Prisma, ChangeOrderStatus } from '@prisma/client';
 import { z } from 'zod';
-import { transaction } from './db';
+import { transaction, Tx } from './db';
 import { Actor, requireCapability, requireProjectAccess, projectScope } from './permissions';
 import { ensure } from './errors';
 import { financialTotals, lineAmounts, money } from './financial-math';
 import { estimateLineSchema } from './financial';
+import { clientNotice, deliverClientNotices } from './client-notices';
 import {
   db,
   json,
@@ -22,6 +23,7 @@ import {
   Transition,
 } from './financial-documents';
 
+export const signedDecimal = z.string().regex(/^-?\d{1,9}(\.\d{1,4})?$/);
 export const changeOrderSchema = z
   .object({
     id: identifier.optional(),
@@ -41,8 +43,9 @@ export const changeOrderSchema = z
         documentLineFields
           .extend({
             clientDescription: note,
+            unitCost: signedDecimal,
+            markupValue: signedDecimal,
             markupMethod: estimateLineSchema.shape.markupMethod,
-            markupValue: estimateLineSchema.shape.markupValue,
           })
           .strict(),
       )
@@ -162,11 +165,13 @@ export async function saveChangeOrder(actor: Actor, input: z.infer<typeof change
   });
 }
 export async function changeOrderAction(actor: Actor, input: Transition) {
-  return transaction(async (tx) => {
+  const notices: string[] = [];
+  const result = await transaction(async (tx) => {
+    notices.length = 0;
     const item = await tx.changeOrderRevision.findUnique({ where: { id: input.id }, include });
     ensure(item, 'Change order not found.', 404);
     const projectId = item.changeOrder.projectId;
-    const project = await requireProjectAccess(actor, projectId, tx);
+    await requireProjectAccess(actor, projectId, tx);
     const capability =
       input.action === 'accept'
         ? 'CHANGE_ORDER_ACCEPT'
@@ -305,90 +310,38 @@ export async function changeOrderAction(actor: Actor, input: Transition) {
       data.issuedAt = new Date();
       data.issuedById = actor.id;
       notifyCapability = 'CHANGE_ORDER_ACCEPT';
+      notices.push(
+        ...(await clientNotice(
+          tx,
+          projectId,
+          'A change order requires your review',
+          item.clientId,
+        )),
+      );
     } else if (input.action === 'accept') {
       ensure(item.status === 'ISSUED', 'Only an issued change order can be accepted.');
       ensure(
         input.acceptedByName && input.acceptanceReference,
         'Record the client name and acceptance evidence/reference.',
       );
-      ensure(
-        project.contractAmount !== null,
-        'Set the original contract value before accepting a change order.',
+      const saved = await applyChangeOrderAcceptance(
+        tx,
+        actor,
+        item.id,
+        input.acceptedByName,
+        input.acceptanceReference,
+        'MANUAL',
       );
-      const budgets = await tx.budget.findMany({
-        where: { projectId, active: true },
-        include: { versions: { orderBy: { version: 'desc' }, include: { lines: true } } },
-      });
-      ensure(
-        budgets.length === 1,
-        'A single approved original/current project budget is required.',
-      );
-      const budget = budgets[0],
-        current = budget.versions.find((x) => x.type !== 'ORIGINAL');
-      ensure(
-        current && budget.versions.some((x) => x.type === 'ORIGINAL'),
-        'Original and current budget snapshots are required.',
-      );
-      const rows = new Map(
-        current.lines.map((line) => [
-          line.costCodeId + ':' + line.costType,
-          without(line, 'id', 'budgetVersionId'),
-        ]),
-      );
-      for (const line of item.lines) {
-        const key = line.costCodeId + ':' + line.costType,
-          old = rows.get(key);
-        rows.set(key, {
-          costCodeId: line.costCodeId,
-          costCodeSnapshot: line.costCodeSnapshot,
-          costCodeNameSnapshot: line.costCodeNameSnapshot,
-          costType: line.costType,
-          description: line.costCodeNameSnapshot,
-          amount: money((old?.amount || money(0)).add(lineAmounts(line).cost)),
-        });
-      }
-      const version = await tx.budgetVersion.create({
-        data: {
-          budgetId: budget.id,
-          version: budget.versions[0].version + 1,
-          type: 'CHANGE_ORDER',
-          changeOrderRevisionId: item.id,
-          description: 'Accepted ' + description,
-          createdById: actor.id,
-          lines: { create: [...rows.values()] },
-        },
-      });
-      await tx.contractAdjustment.create({
-        data: {
-          projectId,
-          changeOrderId: item.changeOrderId,
-          revisionId: item.id,
-          amount: item.subtotal,
-        },
-      });
-      status = 'ACCEPTED';
-      data.acceptedAt = new Date();
-      data.acceptedById = actor.id;
-      data.acceptedByName = input.acceptedByName;
-      data.acceptanceMethod = 'MANUAL';
-      data.acceptanceReference = input.acceptanceReference;
-      notifyCapability = 'CHANGE_ORDER_VIEW';
-      await documentEvent(tx, actor, {
-        projectId,
-        entity: 'BudgetVersion',
-        entityId: version.id,
-        action: 'CHANGE_ORDER_BUDGET_CREATED',
-        description: 'Project budget updated from accepted ' + description + '.',
-        tab: 'budget',
-      });
       await documentEvent(tx, actor, {
         projectId,
         entity: 'ChangeOrderRevision',
         entityId: item.id,
-        action: 'CONTRACT_ADJUSTED',
-        description: 'Contract value adjusted through accepted ' + description + '.',
+        action: 'CHANGE_ORDER_ACCEPTED',
+        description: description + ' accepted.',
         tab: 'change-orders',
+        notifyCapability: 'CHANGE_ORDER_VIEW',
       });
+      return saved;
     } else if (input.action === 'reject' || input.action === 'void') {
       ensure(input.reason, 'A reason is required.');
       ensure(
@@ -415,4 +368,134 @@ export async function changeOrderAction(actor: Actor, input: Transition) {
     });
     return saved;
   });
+  await deliverClientNotices(notices);
+  return result;
+}
+
+// Call only after the caller establishes internal or explicit portal authorization.
+export async function applyChangeOrderAcceptance(
+  tx: Tx,
+  actor: Actor,
+  id: string,
+  acceptedByName: string,
+  acceptanceReference: string,
+  method: 'MANUAL' | 'PORTAL',
+) {
+  const item = await tx.changeOrderRevision.findUnique({ where: { id }, include });
+  ensure(item && item.status === 'ISSUED', 'Issued change order required.', 409);
+  const projectId = item.changeOrder.projectId;
+  const project = await tx.project.findUniqueOrThrow({ where: { id: projectId } });
+  const description = item.changeOrder.number + ' Rev ' + item.revision;
+  ensure(
+    project.contractAmount !== null,
+    'Set the original contract value before accepting a change order.',
+  );
+  const budgets = await tx.budget.findMany({
+    where: { projectId, active: true },
+    include: { versions: { orderBy: { version: 'desc' }, include: { lines: true } } },
+  });
+  ensure(budgets.length === 1, 'A single approved original/current project budget is required.');
+  const budget = budgets[0],
+    current = budget.versions.find((x) => x.type !== 'ORIGINAL');
+  ensure(
+    current && budget.versions.some((x) => x.type === 'ORIGINAL'),
+    'Original and current budget snapshots are required.',
+  );
+  const rows = new Map(
+    current.lines.map((line) => [
+      line.costCodeId + ':' + line.costType,
+      without(line, 'id', 'budgetVersionId'),
+    ]),
+  );
+  for (const line of item.lines) {
+    const key = line.costCodeId + ':' + line.costType,
+      old = rows.get(key);
+    rows.set(key, {
+      costCodeId: line.costCodeId,
+      costCodeSnapshot: line.costCodeSnapshot,
+      costCodeNameSnapshot: line.costCodeNameSnapshot,
+      costType: line.costType,
+      description: line.costCodeNameSnapshot,
+      amount: money((old?.amount || money(0)).add(lineAmounts(line).cost)),
+    });
+  }
+  ensure(
+    [...rows.values()].every((x) => x.amount.gte(0)),
+    'Credit exceeds the current cost-code budget.',
+  );
+  const adjustments = await tx.contractAdjustment.aggregate({
+    where: { projectId },
+    _sum: { amount: true },
+  });
+  ensure(
+    project.contractAmount
+      .add(adjustments._sum.amount || 0)
+      .add(item.subtotal)
+      .gte(0),
+    'Credit exceeds current contract value.',
+  );
+  const version = await tx.budgetVersion.create({
+    data: {
+      budgetId: budget.id,
+      version: budget.versions[0].version + 1,
+      type: 'CHANGE_ORDER',
+      changeOrderRevisionId: item.id,
+      description: 'Accepted ' + description,
+      createdById: actor.id,
+      lines: { create: [...rows.values()] },
+    },
+  });
+  await tx.contractAdjustment.create({
+    data: {
+      projectId,
+      changeOrderId: item.changeOrderId,
+      revisionId: item.id,
+      amount: item.subtotal,
+    },
+  });
+  const data: Prisma.ChangeOrderRevisionUpdateInput = {
+    status: 'ACCEPTED',
+    version: { increment: 1 },
+  };
+  data.acceptedAt = new Date();
+  data.acceptedById = actor.id;
+  data.acceptedByName = acceptedByName;
+  data.acceptanceMethod = method;
+  data.acceptanceReference = acceptanceReference;
+  await documentEvent(tx, actor, {
+    projectId,
+    entity: 'BudgetVersion',
+    entityId: version.id,
+    action: 'CHANGE_ORDER_BUDGET_CREATED',
+    description: 'Project budget updated from accepted ' + description + '.',
+    tab: 'budget',
+  });
+  await documentEvent(tx, actor, {
+    projectId,
+    entity: 'ChangeOrderRevision',
+    entityId: item.id,
+    action: 'CONTRACT_ADJUSTED',
+    description: 'Contract value adjusted through accepted ' + description + '.',
+    tab: 'change-orders',
+  });
+
+  const linkedSelection = await tx.selection.findUnique({
+    where: { changeOrderId: item.changeOrderId },
+  });
+  await tx.selection.updateMany({
+    where: { changeOrderId: item.changeOrderId, status: 'APPROVAL_REQUIRED' },
+    data: { status: 'APPROVED', approvedAt: new Date(), version: { increment: 1 } },
+  });
+  if (linkedSelection)
+    await documentEvent(tx, actor, {
+      projectId,
+      entity: 'Selection',
+      entityId: linkedSelection.id,
+      action: 'SELECTION_APPROVED',
+      description: `Selection “${linkedSelection.title}” approved through ${description}.`,
+      tab: 'selections',
+      notifyCapability: 'SELECTION_VIEW',
+    });
+  await clientNotice(tx, projectId, 'Your change order was accepted', item.clientId || undefined);
+  return tx.changeOrderRevision.update({ where: { id }, data });
 }

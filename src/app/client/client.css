@@ -1,0 +1,246 @@
+.client-shell {
+  min-height: 100vh;
+  background: #f7f6f2;
+  color: #25342c;
+}
+.client-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 5%;
+  background: white;
+  border-bottom: 1px solid #e0e3db;
+}
+.client-header a {
+  text-decoration: none;
+}
+.client-header > span {
+  color: #667363;
+  font-size: 14px;
+}
+.client-main {
+  max-width: 1120px;
+  margin: auto;
+  padding: 36px 24px 72px;
+}
+.client-heading h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(30px, 5vw, 48px);
+  font-weight: 400;
+  margin: 12px 0 28px;
+}
+.client-intro {
+  font-size: 19px;
+  line-height: 1.65;
+  max-width: 740px;
+}
+.client-nav {
+  display: flex;
+  gap: 8px;
+  overflow: auto;
+  padding: 14px 5%;
+  background: #fff;
+  border-bottom: 1px solid #e0e3db;
+}
+.client-nav a {
+  white-space: nowrap;
+  text-transform: capitalize;
+  padding: 10px 16px;
+  border-radius: 24px;
+  text-decoration: none;
+  color: #435046;
+}
+.client-nav a.active {
+  background: #284934;
+  color: white;
+}
+.client-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  margin: 24px 0;
+}
+.client-card {
+  display: block;
+  background: white;
+  border: 1px solid #dde3d9;
+  border-radius: 14px;
+  padding: 24px;
+  margin: 20px 0;
+  box-shadow: 0 4px 20px #263e2910;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.client-grid > .client-card {
+  margin: 0;
+}
+.client-card h2,
+.client-card h3 {
+  font-family: Georgia, serif;
+  font-weight: 400;
+  margin: 8px 0 16px;
+}
+.client-card p {
+  line-height: 1.65;
+}
+.client-attention {
+  padding: 28px;
+  background: #eaf0e5;
+  border: 1px solid #d0dcc5;
+  border-radius: 14px;
+  margin: 32px 0;
+}
+.client-attention > a {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 0;
+  border-top: 1px solid #cedac4;
+  text-decoration: none;
+  color: #24472c;
+}
+.client-attention span {
+  font-size: 13px;
+}
+.client-option {
+  display: block;
+  border: 2px solid #e0e5db;
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+}
+.client-option.selected {
+  border-color: #35593b;
+  background: #f3f7ee;
+}
+.client-option input[type='radio'] {
+  width: auto;
+  margin-right: 12px;
+}
+.client-photo {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.client-file-link {
+  display: block;
+  padding: 10px 0;
+}
+.client-receipt {
+  background: #edf4e8;
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+.client-footer {
+  padding: 24px;
+  text-align: center;
+  color: #677164;
+  font-size: 13px;
+}
+.client-message {
+  border-bottom: 1px solid #e0e5db;
+  padding: 16px 0;
+}
+.preserve-text {
+  white-space: pre-wrap;
+}
+.client-card details {
+  margin-top: 24px;
+}
+.client-shell table {
+  width: 100%;
+  text-align: left;
+}
+.client-shell th,
+.client-shell td {
+  padding: 12px 6px;
+  border-bottom: 1px solid #e0e5db;
+}
+.client-shell label {
+  margin: 14px 0;
+}
+.client-shell button {
+  margin: 8px 8px 8px 0;
+}
+.client-shell .check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.client-shell .check input {
+  width: auto;
+  flex-shrink: 0;
+}
+.client-shell textarea {
+  min-height: 110px;
+}
+.client-shell .eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+}
+.client-shell small {
+  color: #667363;
+}
+.client-card .button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+@media (max-width: 640px) {
+  .client-header {
+    padding: 16px;
+    gap: 10px;
+  }
+  .client-header > span {
+    display: none;
+  }
+  .client-main {
+    padding: 24px 16px;
+  }
+  .client-card,
+  .client-attention {
+    padding: 20px;
+  }
+  .client-nav {
+    padding: 8px;
+  }
+  .client-grid {
+    grid-template-columns: 1fr;
+  }
+  .client-attention > a {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .client-card table {
+    font-size: 13px;
+  }
+}
+@media print {
+  body:has(.client-print-document) * {
+    visibility: hidden !important;
+  }
+  .client-print-document,
+  .client-print-document * {
+    visibility: visible !important;
+  }
+  .client-print-document {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border: 0;
+    box-shadow: none;
+  }
+  .client-print-document .no-print,
+  .client-print-document .no-print * {
+    display: none !important;
+  }
+  .client-print-document tr {
+    break-inside: avoid;
+  }
+}

@@ -6,6 +6,8 @@ import { api, date, duration, pretty, useApi } from '@/lib/client';
 import { ActionButton, Badge, Empty, ErrorBox, Loading, Modal } from './ui';
 import { ProjectBudget, ProjectEstimate, ProjectProposals } from './financials';
 import { PurchasingWorkspace, ProcurementOverview } from './purchasing';
+import { SelectionWorkspace, ClientManagement } from './selections';
+import { ProjectMessages } from './client-portal';
 
 type Person = { id: string; firstName: string; lastName: string };
 type Assignment = { id: string; role: string; primary: boolean; user: Person };
@@ -109,6 +111,9 @@ const tabs = [
   'budget',
   'purchase-orders',
   'change-orders',
+  'selections',
+  'clients',
+  'messages',
   'daily-logs',
   'files',
   'photos',
@@ -165,6 +170,12 @@ export function ProjectWorkspace({ id, tab = 'overview' }: { id: string; tab?: s
             <PurchasingWorkspace projectId={project.id} />
           ) : active === 'change-orders' ? (
             <PurchasingWorkspace projectId={project.id} change />
+          ) : active === 'selections' ? (
+            <SelectionWorkspace projectId={project.id} />
+          ) : active === 'clients' ? (
+            <ClientManagement projectId={project.id} />
+          ) : active === 'messages' ? (
+            <ProjectMessages projectId={project.id} />
           ) : active === 'daily-logs' ? (
             <DailyLogs project={project} />
           ) : active === 'files' ? (

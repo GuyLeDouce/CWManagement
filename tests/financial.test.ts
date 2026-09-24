@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { selectionVariance } from '../src/lib/financial-math';
 import { fulfillmentState } from '../src/lib/commitments';
 import { purchasingSchema } from '../src/lib/purchasing';
 import { changeOrderSchema } from '../src/lib/change-orders';
@@ -11,6 +12,34 @@ import {
 } from '../src/lib/financial';
 
 describe('financial calculations', () => {
+  it.each([
+    ['12000', '12000', '0.00'],
+    ['12000', '14500', '2500.00'],
+    ['12000', '10000', '-2000.00'],
+    ['0', '5000', '5000.00'],
+    ['12000', '12000.005', '0.01'],
+  ])('calculates allowance %s versus selection %s', (allowance, price, expected) => {
+    expect(selectionVariance(allowance, price).toFixed(2)).toBe(expected);
+  });
+  it('preserves signed change order cost, selling price and HST for credits', () => {
+    const result = financialTotals(
+      [
+        {
+          quantity: '1',
+          unitCost: '-1000',
+          markupMethod: 'FIXED',
+          markupValue: '-1000',
+          taxable: true,
+          included: true,
+        },
+      ],
+      '0.13',
+    );
+    expect(result.cost.toString()).toBe('-1000');
+    expect(result.price.toString()).toBe('-2000');
+    expect(result.tax.toString()).toBe('-260');
+    expect(result.total.toString()).toBe('-2260');
+  });
   it('distinguishes committed, partially fulfilled, and fulfilled without counting consumed amounts twice', () => {
     expect(fulfillmentState([{ committedAmount: '10000', consumedAmount: '0' }])).toBe('COMMITTED');
     expect(fulfillmentState([{ committedAmount: '10000', consumedAmount: '4000' }])).toBe(

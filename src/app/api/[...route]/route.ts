@@ -1,3 +1,4 @@
+import { dispatchClient, dispatchClientManagement } from '@/lib/client-api';
 import { NextRequest, NextResponse } from 'next/server';
 import { dispatchFinancialOperations } from '@/lib/financial-api';
 import { z } from 'zod';
@@ -124,6 +125,11 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   }
   const actor = await requireUser();
   if (!get) await rateLimit(`action:${actor.id}`, 150, 60);
+  if (path === 'auth/logout' && !get) return logout();
+  if (path.startsWith('client/')) return dispatchClient(actor, get, path.slice(7), params, body);
+  ensure(!actor.roles.includes('CLIENT'), 'This action is not available.', 403);
+  if (path.startsWith('client-management/'))
+    return dispatchClientManagement(actor, get, path.slice(18), params, body);
   if (path.startsWith('financial/operations/'))
     return dispatchFinancialOperations(
       actor,

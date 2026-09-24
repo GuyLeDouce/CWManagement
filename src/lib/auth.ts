@@ -36,6 +36,11 @@ export async function login(email: string, password: string) {
   const token = randomToken();
   const expiresAt = new Date(Date.now() + 30 * 86400000);
   await db.session.create({ data: { userId: user.id, tokenHash: digest(token), expiresAt } });
+  if (user.roles.length === 1 && user.roles[0] === 'CLIENT')
+    await db.clientProjectAccess.updateMany({
+      where: { userId: user.id, active: true, revokedAt: null, acceptedAt: null },
+      data: { acceptedAt: new Date() },
+    });
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

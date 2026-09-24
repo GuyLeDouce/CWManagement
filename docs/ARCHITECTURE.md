@@ -25,11 +25,11 @@ CWManagement is the Cedar Winds operational system. QuickBooks Desktop remains t
 
 ## UI shell
 
-Internal navigation is Dashboard, Leads, Projects, Schedule, Financials, Time, Contacts, Reports, Notifications, and Settings/admin. Project workspaces provide Overview, Schedule, Daily Logs, Files, Photos, Time, and Settings. Estimate, Proposals, Budget, Purchase Orders/Work Orders and Change Orders are implemented; client modules remain deferred.
+Internal navigation includes management and the retained Time module. Project workspaces expose operations, financials, purchasing, Selections, Clients and Messages. The separate /client experience exposes only deliberately published project content.
 
 ## Authorization rule
 
-Every protected read and mutation is checked server-side. UI hiding is convenience only. Project queries use all-project or assigned-project scope. Portal boundaries will use separate scoped query services rather than filtering internal responses in the browser.
+Every protected read and mutation is checked server-side. UI hiding is convenience only. Internal queries use all-project or assigned-project scope. Client services require explicit ClientProjectAccess and separate allowlisted DTOs, never internal responses filtered in React.
 
 ## Project operations services
 
@@ -43,4 +43,10 @@ Every protected read and mutation is checked server-side. UI hiding is convenien
 
 `purchasing.ts` owns shared PO/WO families, revisions and issuance into the existing Commitment ledger. `change-orders.ts` owns client change revisions and atomic acceptance into ContractAdjustment and BudgetVersion. `commitments.ts` owns consumption, reconciliation, reversal, and fulfillment states. Shared `financial-math.ts` preserves Phase 3 Decimal rules. `financial-documents.ts` handles numbering, identity snapshots, validated references and event-triggered notifications. `financial-api.ts` groups `/api/financial/operations/*` behind the existing authenticated dispatcher and origin/rate-limit protections.
 
-Generic project/activity responses omit audit before/after payloads; nonfinancial project readers do not receive contract amounts. All new document access uses capabilities plus project scope. Print snapshots omit internal notes and client margins. Client/vendor authentication, selections, payroll and synchronization are not implemented.
+Generic project/activity responses omit audit before/after payloads; nonfinancial project readers do not receive contract amounts. Internal document access uses capabilities plus project scope. Print snapshots omit internal notes and client margins. Vendor authentication, payroll and synchronization remain deferred.
+
+## Phase 5 services
+
+client-access.ts owns grants and invitations using existing sessions/tokens. client-projections.ts defines client DTOs. selections.ts owns allowances, options, publication and immutable decisions; nonzero variance creates a draft in the existing CO domain. client-approvals.ts calls the same atomic acceptance function as internal acceptance. client-messages.ts owns audience-scoped threads/read states. client-api.ts dispatches portal and management actions behind origin/rate-limit checks. client-notices.ts creates transactional inbox records and sends best-effort email after commit.
+
+CLIENT cannot inherit internal capabilities through mixed roles or overrides; the dispatcher blocks legacy internal endpoints. StoredFile downloads recheck client grants and visibility. Database triggers protect approval evidence, confirmed selections and published options. See CLIENT_PORTAL.md, SELECTIONS.md and CLIENT_COMMUNICATION.md.

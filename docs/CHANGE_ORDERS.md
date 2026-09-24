@@ -4,7 +4,7 @@
 
 ChangeOrder is a project-scoped numbered family; ChangeOrderRevision preserves client modifications independently of purchasing. A revision contains title, description/category, client scope, internal notes, client contact, terms, schedule impact in whole days, attachment references, internal pricing lines, tax, approval/issue metadata and acceptance evidence. Settings owns CO prefix/counter/default terms.
 
-ChangeOrderLine reuses financial-math.ts and the estimate validators: quantity × unit cost rounded half-up, then fixed or percentage markup on cost. Internal cost, pre-tax client price, tax and total remain distinct. This release supports nonnegative additions, including zero-cost changes; deductive/credit COs require a future explicitly validated workflow. Negative quantities/costs/markup are rejected.
+ChangeOrderLine reuses financial-math.ts: quantity × unit cost rounded half-up, then fixed or percentage markup on cost. Internal cost, pre-tax client price, tax and total remain distinct. Phase 5 extends CO-specific validators for signed cost/markup credits; quantities remain nonnegative. Estimate and purchasing validators remain unchanged.
 
 ## Lifecycle and history
 
@@ -12,7 +12,7 @@ DRAFT → INTERNAL_REVIEW → READY → ISSUED → ACCEPTED, with explicit REJEC
 
 Only drafts are editable. Review/ready revisions can return to draft, clearing approval. Issue requires internal approval and an active client linked to the project. Ready, issued or rejected revisions can produce a new draft revision; the previous revision is superseded immediately and can no longer be accepted. Old issued snapshots and line content remain immutable at application and database levels.
 
-Acceptance is manual in Phase 4. An authorized user records client name and evidence/reference; acceptedById identifies the internal recorder, acceptanceMethod is MANUAL, and acceptedAt is the recording time. This is not a client signature or authentication claim. Future portal acceptance can populate these fields from a verified client workflow.
+Manual acceptance remains available to authorized staff with client name and evidence/reference; acceptedById identifies the recorder and acceptanceMethod is MANUAL. Phase 5 portal acceptance records the authenticated client, acceptanceMethod PORTAL and the immutable ClientApproval reference. These are distinct evidence sources.
 
 Accepted revisions cannot be edited, revised, voided or accepted twice. Later additions use a separate Change Order. Reject/void requires a reason and never applies financial effects.
 
@@ -38,4 +38,12 @@ At issue, a client-safe JSON snapshot freezes company/project/client identity an
 
 PurchasingRevision.changeOrderRevisionId optionally references an issued/accepted CO from the same project. Creating or accepting a CO never automatically creates a PO or labour actual.
 
-Project → Change Orders provides creation, draft pricing, history, approval, issue, manual acceptance, rejection/void and print. Project Overview and Financials expose scoped action queues. Client authentication, self-service approval, electronic signatures, selections and allowances remain Phase 5 work.
+Project → Change Orders provides creation, draft pricing, history, approval, issue, manual acceptance, rejection/void and print. Project Overview and Financials expose scoped queues. Phase 5 adds authenticated client approval, allowances and selections; third-party electronic signatures remain deferred.
+
+## Phase 5 credits and authenticated approval
+
+CO quantities remain nonnegative, but cost and fixed markup can be signed to represent independent internal-cost and client-price credits. Shared Decimal calculations preserve negative HST. Acceptance rejects a negative resulting current cost-code budget or current contract. The original contract and ORIGINAL budget remain unchanged.
+
+Selection variance creates a DRAFT CO only. The client price delta excludes the already contracted allowance and internal cost delta excludes its included cost baseline. Normal review/approve/issue workflow applies. Accepted linked COs move selections to APPROVED.
+
+ClientApproval uniquely references an issued revision and stores authenticated user/contact, typed name, action, timestamp, allowlisted displayed snapshot and SHA-256 hash. Portal approval is named-client/project scoped and uses applyChangeOrderAcceptance in the same serializable transaction as evidence creation. Retries/concurrency cannot double-apply. Decline records evidence without ledger effects; a new revision may be issued. Manual acceptance remains capability-protected. See CLIENT_PORTAL.md.

@@ -28,4 +28,6 @@ QuickBooks remains ledger-authoritative. `ActualCost.externalSystem + sourceExte
 
 ## Purchasing and contract changes
 
+Phase 5 adds allowance/selection traceability, not another ledger. Allowance is already included in contract; only selected client price minus included allowance becomes draft CO selling price. Internal CO cost is selected cost minus included cost baseline. Zero price difference approves the selection without ledger changes. Negative deltas preserve signed HST and reduce current contract/budget only on CO acceptance. Acceptance rejects negative resulting budget allocations or contract value. Authenticated portal approval calls the same transactional financial acceptance function as staff. ORIGINAL values remain untouched.
+
 Issued PO/WO revisions feed Commitment/CommitmentLine, excluding recoverable tax. Draft/approved documents have no exposure. Overage rejection requires purchasing revision, with no implicit override. Reversals preserve source actual rows and reconcile consumption. Accepted CO client price creates ContractAdjustment; estimated internal cost creates a new CHANGE_ORDER BudgetVersion. Project.contractAmount remains the original pre-tax contract. Tax is neither budget cost nor contract revenue here. No AP bills, AR, payroll, qbXML or connector services were added.

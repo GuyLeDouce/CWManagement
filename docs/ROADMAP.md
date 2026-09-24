@@ -14,15 +14,15 @@ Cost-code administration/import, estimate and proposal snapshot revisions, print
 
 ## Phase 4 — Purchasing and change management (implemented)
 
-Shared PO/WO document families, immutable issued revisions, approvals, normalized commitments, atomic invoice consumption/reversal, controlled overage rejection, manually accepted COs, contract adjustments and budget snapshots, print output, scoped work queues and transactional/browser tests. Deductive COs, vendor acknowledgements, electronic signatures and automatic document delivery remain follow-up work.
+Shared PO/WO document families, immutable issued revisions, approvals, normalized commitments, atomic invoice consumption/reversal, controlled overage rejection, manually accepted COs, contract adjustments and budget snapshots, print output, scoped work queues and transactional/browser tests. Phase 5 adds credits and client approval. Vendor acknowledgements, regulated electronic signatures and automatic document delivery remain follow-up work.
 
-## Phase 5 — Selections and client portal
+## Phase 5 — Selections and client portal (implemented)
 
-Allowances → Selections → Client publishing → Client authentication/portal → client Change Order and Selection approvals → client communication. Warranty remains later operational work.
+Allowances and options, explicit client grants/invitations, allowlisted portal DTOs, published schedule/updates/files, immutable selection decisions, signed selection CO deltas, authenticated idempotent CO approval and scoped messaging are implemented. SMTP delivery uses existing configuration; production file storage, scheduled reminders and larger-history pagination remain follow-up work. Warranty remains later operational work.
 
 ## Phase 6 — Trade portal
 
-Scoped trade schedules, documents, work orders, site instructions, deficiencies, and uploads.
+Trade / Subcontractor Portal → explicit scoped access → published schedules → issued Work Orders / POs → drawings/documents → acknowledgement → site instructions → deficiencies → uploads → trade communication. Reuse Phase 5 isolation patterns with separate trade DTOs.
 
 ## Phase 7 — QuickBooks Desktop
 
