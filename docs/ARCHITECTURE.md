@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-CWManagement is the Cedar Winds operational system. QuickBooks Desktop remains the accounting ledger. The first release owns identity, people, projects, assignments, time capture/approval, operational dashboards, and audit history.
+CWManagement is the Cedar Winds operational system. QuickBooks Desktop remains the accounting ledger. The application owns identity, people, projects, assignments, time capture/approval, operational dashboards, estimating/proposals, purchasing, change orders, job-cost context, and audit history.
 
 ## Application structure
 
@@ -25,7 +25,7 @@ CWManagement is the Cedar Winds operational system. QuickBooks Desktop remains t
 
 ## UI shell
 
-Internal navigation is Dashboard, Leads, Projects, Schedule, Financials, Time, Contacts, Reports, Notifications, and Settings/admin. Project workspaces provide Overview, Schedule, Daily Logs, Files, Photos, Time, and Settings. Future financial/client modules remain honest placeholders.
+Internal navigation is Dashboard, Leads, Projects, Schedule, Financials, Time, Contacts, Reports, Notifications, and Settings/admin. Project workspaces provide Overview, Schedule, Daily Logs, Files, Photos, Time, and Settings. Estimate, Proposals, Budget, Purchase Orders/Work Orders and Change Orders are implemented; client modules remain deferred.
 
 ## Authorization rule
 
@@ -37,4 +37,10 @@ Every protected read and mutation is checked server-side. UI hiding is convenien
 
 ## Financial services
 
-`financial.ts` is the server-authoritative boundary for cost-code administration/import, Decimal calculations, estimate/proposal revision snapshots, budget creation, actual costs, and job-cost aggregation. Browser totals are previews only. Project workspaces expose Estimate, Proposals, and Budget alongside operations.
+`financial.ts` is the server-authoritative boundary for cost-code administration/import, Decimal calculations, estimate/proposal revision snapshots, budget creation, actual costs, and job-cost aggregation. Estimate screens use server-calculated totals. Project workspaces expose Estimate, Proposals, and Budget alongside operations.
+
+## Phase 4 services
+
+`purchasing.ts` owns shared PO/WO families, revisions and issuance into the existing Commitment ledger. `change-orders.ts` owns client change revisions and atomic acceptance into ContractAdjustment and BudgetVersion. `commitments.ts` owns consumption, reconciliation, reversal, and fulfillment states. Shared `financial-math.ts` preserves Phase 3 Decimal rules. `financial-documents.ts` handles numbering, identity snapshots, validated references and event-triggered notifications. `financial-api.ts` groups `/api/financial/operations/*` behind the existing authenticated dispatcher and origin/rate-limit protections.
+
+Generic project/activity responses omit audit before/after payloads; nonfinancial project readers do not receive contract amounts. All new document access uses capabilities plus project scope. Print snapshots omit internal notes and client margins. Client/vendor authentication, selections, payroll and synchronization are not implemented.

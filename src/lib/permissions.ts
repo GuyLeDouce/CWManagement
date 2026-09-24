@@ -130,6 +130,39 @@ const roleCapabilities: Partial<Record<Role, Capability[]>> = {
   SUBTRADE: ['PROJECT_VIEW_ASSIGNED'],
   VENDOR: ['PROJECT_VIEW_ASSIGNED'],
 };
+const purchasingOperations: Capability[] = [
+  'PURCHASE_ORDER_VIEW',
+  'PURCHASE_ORDER_CREATE',
+  'PURCHASE_ORDER_EDIT',
+  'WORK_ORDER_VIEW',
+  'WORK_ORDER_CREATE',
+  'WORK_ORDER_EDIT',
+  'CHANGE_ORDER_VIEW',
+  'CHANGE_ORDER_CREATE',
+  'CHANGE_ORDER_EDIT',
+  'COMMITMENT_VIEW',
+];
+const purchasingControl: Capability[] = [
+  ...purchasingOperations,
+  'PURCHASE_ORDER_APPROVE',
+  'PURCHASE_ORDER_ISSUE',
+  'WORK_ORDER_APPROVE',
+  'WORK_ORDER_ISSUE',
+  'CHANGE_ORDER_APPROVE_INTERNAL',
+  'CHANGE_ORDER_ISSUE',
+  'CHANGE_ORDER_ACCEPT',
+  'COMMITMENT_MANAGE',
+  'ACTUAL_COST_RECONCILE',
+];
+roleCapabilities.CONTROLLER!.push(...purchasingControl);
+roleCapabilities.PM!.push(...purchasingOperations);
+roleCapabilities.PROJECT_MANAGER!.push(...purchasingOperations);
+roleCapabilities.ESTIMATOR!.push(
+  'CHANGE_ORDER_VIEW',
+  'CHANGE_ORDER_CREATE',
+  'CHANGE_ORDER_EDIT',
+  'CHANGE_ORDER_APPROVE_INTERNAL',
+);
 export function roleGrants(user: Pick<User, 'roles'>, capability: Capability) {
   return user.roles.some((role) => roleCapabilities[role]?.includes(capability));
 }

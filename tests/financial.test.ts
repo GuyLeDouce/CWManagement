@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { fulfillmentState } from '../src/lib/commitments';
+import { purchasingSchema } from '../src/lib/purchasing';
+import { changeOrderSchema } from '../src/lib/change-orders';
 import {
   actualCostSchema,
   estimateLineSchema,
@@ -8,6 +11,50 @@ import {
 } from '../src/lib/financial';
 
 describe('financial calculations', () => {
+  it('distinguishes committed, partially fulfilled, and fulfilled without counting consumed amounts twice', () => {
+    expect(fulfillmentState([{ committedAmount: '10000', consumedAmount: '0' }])).toBe('COMMITTED');
+    expect(fulfillmentState([{ committedAmount: '10000', consumedAmount: '4000' }])).toBe(
+      'PARTIALLY_FULFILLED',
+    );
+    expect(fulfillmentState([{ committedAmount: '10000', consumedAmount: '10000' }])).toBe(
+      'FULFILLED',
+    );
+    expect(
+      fulfillmentState([
+        { committedAmount: '10000', consumedAmount: '10000' },
+        { committedAmount: '2000', consumedAmount: '0' },
+      ]),
+    ).toBe('PARTIALLY_FULFILLED');
+  });
+  it('rejects negative purchasing quantities, client-supplied totals, and fractional schedule days', () => {
+    const line = {
+      costCodeId: 'code',
+      costType: 'MATERIAL',
+      description: 'Material',
+      quantity: '-1',
+      unit: 'EA',
+      unitCost: '10',
+      taxable: true,
+      sortOrder: 0,
+    };
+    const po = {
+      projectId: 'project',
+      type: 'PURCHASE_ORDER',
+      vendorContactId: 'vendor',
+      title: 'PO',
+      lines: [line],
+    };
+    expect(purchasingSchema.safeParse(po).success).toBe(false);
+    expect(purchasingSchema.safeParse({ ...po, lines: [], total: 1 }).success).toBe(false);
+    expect(
+      changeOrderSchema.safeParse({
+        projectId: 'project',
+        title: 'CO',
+        lines: [],
+        scheduleDays: 1.5,
+      }).success,
+    ).toBe(false);
+  });
   it('rejects malformed, nonfinite, oversized, and overprecise financial inputs without throwing', () => {
     for (const value of ['invalid', 'NaN', 'Infinity', '-Infinity', '100000000000000', '0.00001']) {
       expect(estimateLineSchema.shape.quantity.safeParse(value).success).toBe(false);

@@ -1,10 +1,10 @@
 # CWManagement
 
-A Cedar Winds-specific construction and business management platform. Phase 1 provides projects, contacts/clients, assignments, capability-based access, a live management dashboard, and the proven mobile timekeeping workflow inherited from CWTimeClock.
+A Cedar Winds-specific construction and business management platform. Phases 1–4 provide projects, contacts/companies, schedule/files, estimates/proposals, budgets, purchase/work orders, change orders, reconciled actual costs, and the proven mobile Time module inherited from CWTimeClock.
 
 **Stack:** Next.js 16, React, TypeScript, Tailwind/CSS theme variables, PostgreSQL, Prisma, Zod. Deploy with the usual **GitHub → Railway** workflow. The PWA is the same website saved to a phone; there is no App Store build or separate mobile backend.
 
-## Phase 1 foundation
+## Management platform
 
 - CWManagement application shell with Dashboard, Leads, Projects, Schedule, Financials, Time, Contacts, Reports, and Settings navigation.
 - First-class Projects with contacts, clients, internal assignments, lifecycle status/stage, dates, location, notes, and archive state.
@@ -27,13 +27,19 @@ A Cedar Winds-specific construction and business management platform. Phase 1 pr
 
 The source-of-truth decisions are in [Architecture](docs/ARCHITECTURE.md), [Database](docs/DATABASE.md), [Permissions](docs/PERMISSIONS.md), [Accounting](docs/ACCOUNTING.md), [Portal boundaries](docs/CLIENT_PORTAL.md), and the [Roadmap](docs/ROADMAP.md). The original timeclock brief remains in [original-requirements.md](docs/original-requirements.md).
 
+## Purchasing and change management
+
+Project workspaces now include Purchase Orders (including Work Orders/Subcontracts), Change Orders, and Budget/job-cost reports. Issued purchasing feeds the existing commitment ledger; invoices consume commitments atomically. Accepted change orders separately adjust current contract revenue and current internal budget. Original baselines and issued history remain preserved. See [Purchasing](docs/PURCHASING.md), [Change Orders](docs/CHANGE_ORDERS.md), and [Job Costing](docs/JOB_COSTING.md).
+
+Phase 4 requires migration `202609240001_purchasing_change_management`. Railway already runs `npm run db:migrate` before deployment. Back up and stage first; no new environment variables are required. Issuing records a document state; print/share delivery is manual. Client/Trade Portals and QuickBooks synchronization remain deferred.
+
 ## Local setup
 
 Install **Node.js 22 LTS**, Git, and Docker Desktop (or an existing PostgreSQL 16+ server).
 
 ```bash
-git clone https://github.com/GuyLeDouce/CWTimeClock.git
-cd CWTimeClock
+git clone https://github.com/GuyLeDouce/CWManagement.git
+cd CWManagement
 cp .env.example .env
 # Windows PowerShell: Copy-Item .env.example .env
 ```
@@ -60,7 +66,7 @@ Open [localhost:3000](http://localhost:3000) and sign in with your configured ow
 ## Deploy to Railway — step by step
 
 1. In Railway, create a project and add a **PostgreSQL** service. Enable database backups for live time records.
-2. Add a service from **GitHub Repo → GuyLeDouce/CWTimeClock**. Choose the branch you want to deploy. Railway uses the repository’s Dockerfile and `railway.json`.
+2. Add a service from **GitHub Repo → GuyLeDouce/CWManagement**. Choose the branch you want to deploy. Railway uses the repository’s Dockerfile and `railway.json`.
 3. In the app service, add a reference variable for the database: `DATABASE_URL=${{Postgres.DATABASE_URL}}`. If your database service has a different name, select its `DATABASE_URL` from Railway’s variable reference picker. Use Railway’s private database URL.
 4. Generate a public domain for the app service (or configure your own domain). Set `APP_URL` to the exact HTTPS origin, such as `https://timeclock.your-company-domain.ca`, without a path. The Origin check and emailed links use this value.
 5. Add the application variables from the table below. Generate your own secret; do not copy the local/CI examples.

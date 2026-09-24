@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { dispatchFinancialOperations } from '@/lib/financial-api';
 import { z } from 'zod';
 import { Prisma, ProjectStatus } from '@prisma/client';
 import QRCode from 'qrcode';
@@ -32,6 +33,8 @@ import { visit, visitSchema, visits } from '@/lib/visits';
 import { digest } from '@/lib/crypto';
 import {
   contactSchema,
+  companySchema,
+  saveCompany,
   contacts,
   dashboard,
   managementOptionsV1,
@@ -121,10 +124,23 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   }
   const actor = await requireUser();
   if (!get) await rateLimit(`action:${actor.id}`, 150, 60);
+  if (path.startsWith('financial/operations/'))
+    return dispatchFinancialOperations(
+      actor,
+      get,
+      path.slice('financial/operations/'.length),
+      params,
+      body,
+    );
   if (get && path === 'state') return state(actor, params.qr);
   if (get && path === 'management/state') return managementState(actor);
   if (get && path === 'management/dashboard') return dashboard(actor);
   if (get && path === 'management/options') return managementOptionsV1(actor);
+  if (get && path === 'management/companies') {
+    await requireCapability(actor, 'CONTACT_MANAGE');
+    return { companies: await db.company.findMany({ orderBy: { name: 'asc' } }) };
+  }
+  if (!get && path === 'management/companies') return saveCompany(actor, companySchema.parse(body));
   if (get && path === 'management/projects')
     return {
       projects: await projects(

@@ -6,57 +6,11 @@ import { privateKey } from './crypto';
 import { db, transaction } from './db';
 import { AppError, ensure } from './errors';
 import { Actor, can, requireCapability, requireProjectAccess } from './permissions';
+import { consumeCommitment, refreshCommitment, reportOverage } from './commitments';
 
 const Decimal = Prisma.Decimal;
-export const money = (value: Prisma.Decimal.Value) =>
-  new Decimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
-
-export function lineAmounts(input: {
-  quantity: Prisma.Decimal.Value;
-  unitCost: Prisma.Decimal.Value;
-  markupMethod: MarkupMethod;
-  markupValue: Prisma.Decimal.Value;
-}) {
-  const cost = money(new Decimal(input.quantity).mul(input.unitCost));
-  const markup =
-    input.markupMethod === 'PERCENT_ON_COST'
-      ? money(cost.mul(input.markupValue).div(100))
-      : input.markupMethod === 'FIXED'
-        ? money(input.markupValue)
-        : money(0);
-  return { cost, markup, price: money(cost.add(markup)) };
-}
-
-export function financialTotals(
-  lines: Array<Parameters<typeof lineAmounts>[0] & { taxable: boolean; included: boolean }>,
-  taxRate: Prisma.Decimal.Value,
-) {
-  let cost = new Decimal(0),
-    price = new Decimal(0),
-    taxable = new Decimal(0);
-  for (const line of lines.filter((item) => item.included)) {
-    const amounts = lineAmounts(line);
-    cost = cost.add(amounts.cost);
-    price = price.add(amounts.price);
-    if (line.taxable) taxable = taxable.add(amounts.price);
-  }
-  cost = money(cost);
-  price = money(price);
-  const tax = money(taxable.mul(taxRate));
-  const total = money(price.add(tax));
-  const profit = money(price.sub(cost));
-  return {
-    cost,
-    markup: profit,
-    price,
-    tax,
-    total,
-    profit,
-    marginPercent: price.eq(0)
-      ? new Decimal(0)
-      : profit.div(price).mul(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP),
-  };
-}
+export { money, lineAmounts, financialTotals } from './financial-math';
+import { money, lineAmounts, financialTotals } from './financial-math';
 
 const nullable = z
   .string()
@@ -291,6 +245,11 @@ export const costCodeTemplate = 'code,name,description,type,parentCode,active,so
 
 export const financialSettingsSchema = z
   .object({
+    purchaseOrderPrefix: z.string().trim().min(1).max(20).optional(),
+    workOrderPrefix: z.string().trim().min(1).max(20).optional(),
+    changeOrderPrefix: z.string().trim().min(1).max(20).optional(),
+    purchasingTerms: z.string().trim().max(10000).optional(),
+    changeOrderTerms: z.string().trim().max(10000).optional(),
     taxRatePercent: z.coerce.number().min(0).max(100),
     estimatePrefix: z.string().trim().min(1).max(20),
     proposalPrefix: z.string().trim().min(1).max(20),
@@ -312,6 +271,11 @@ export async function saveFinancialSettings(
     const before = await tx.settings.findUnique({ where: { id: 'company' } });
     const data = {
       taxRate: new Decimal(input.taxRatePercent).div(100),
+      purchaseOrderPrefix: input.purchaseOrderPrefix,
+      workOrderPrefix: input.workOrderPrefix,
+      changeOrderPrefix: input.changeOrderPrefix,
+      purchasingTerms: input.purchasingTerms,
+      changeOrderTerms: input.changeOrderTerms,
       estimatePrefix: input.estimatePrefix,
       proposalPrefix: input.proposalPrefix,
       legalName: input.legalName,
@@ -838,6 +802,13 @@ export async function createBudget(actor: Actor, proposalRevisionId: string) {
       'A budget already exists for this proposal.',
       409,
     );
+    ensure(
+      !(await tx.budget.findFirst({
+        where: { projectId: proposal.proposal.projectId, active: true },
+      })),
+      'A project already has an active budget. Use change orders to adjust it.',
+      409,
+    );
     const grouped = new Map<
       string,
       {
@@ -911,121 +882,131 @@ export async function createBudget(actor: Actor, proposalRevisionId: string) {
 export async function jobCost(actor: Actor, projectId: string) {
   await requireCapability(actor, 'JOB_COST_VIEW');
   await requireProjectAccess(actor, projectId);
-  const [budget, commitments, actuals, adjustments, project] = await Promise.all([
-      db.budget.findFirst({
-        where: { projectId, active: true },
-        include: { versions: { include: { lines: true }, orderBy: { version: 'asc' } } },
-      }),
-      db.commitmentLine.findMany({
-        where: {
-          commitment: {
-            projectId,
-            status: { in: ['COMMITTED', 'PARTIALLY_FULFILLED', 'FULFILLED'] },
-          },
-        },
-        include: { costCode: true },
-      }),
-      db.actualCost.findMany({
-        where: { projectId, reversedAt: null },
-        include: { costCode: true },
-      }),
-      db.forecastAdjustment.findMany({ where: { projectId }, include: { costCode: true } }),
-      db.project.findUnique({ where: { id: projectId }, select: { contractAmount: true } }),
-    ]),
-    original = budget?.versions.find((x) => x.type === 'ORIGINAL'),
-    current = [...(budget?.versions || [])].reverse().find((x) => x.type !== 'ORIGINAL'),
-    rows = new Map<
-      string,
-      {
-        costCodeId: string;
-        code: string;
-        name: string;
-        type: CostCodeType;
-        original: Prisma.Decimal;
-        current: Prisma.Decimal;
-        committed: Prisma.Decimal;
-        actual: Prisma.Decimal;
-        adjustment: Prisma.Decimal;
-      }
-    >(),
-    row = (id: string, code: string, name: string, type: CostCodeType) => {
-      const key = `${id}:${type}`;
-      if (!rows.has(key))
-        rows.set(key, {
-          costCodeId: id,
-          code,
-          name,
-          type,
-          original: new Decimal(0),
-          current: new Decimal(0),
-          committed: new Decimal(0),
-          actual: new Decimal(0),
-          adjustment: new Decimal(0),
-        });
-      return rows.get(key)!;
-    };
-  for (const x of original?.lines || []) {
-    const r = row(x.costCodeId, x.costCodeSnapshot, x.costCodeNameSnapshot, x.costType);
-    r.original = r.original.add(x.amount);
-  }
-  for (const x of current?.lines || []) {
-    const r = row(x.costCodeId, x.costCodeSnapshot, x.costCodeNameSnapshot, x.costType);
-    r.current = r.current.add(x.amount);
-  }
-  for (const x of commitments) {
-    const r = row(x.costCodeId, x.costCode.code, x.costCode.name, x.costType);
-    r.committed = r.committed.add(Decimal.max(0, x.committedAmount.sub(x.consumedAmount)));
-  }
-  for (const x of actuals) {
-    const r = row(x.costCodeId, x.costCode.code, x.costCode.name, x.costType);
-    r.actual = r.actual.add(x.amount);
-  }
-  for (const x of adjustments) {
-    const r = row(x.costCodeId, x.costCode.code, x.costCode.name, x.costType);
-    r.adjustment = r.adjustment.add(x.amount);
-  }
-  const result = [...rows.values()].map((x) => {
-      const forecast = money(Decimal.max(x.current, x.actual.add(x.committed).add(x.adjustment)));
-      return {
-        ...x,
-        original: money(x.original),
-        current: money(x.current),
-        committed: money(x.committed),
-        actual: money(x.actual),
-        forecast,
-        variance: money(x.current.sub(forecast)),
+  return transaction(async (tx) => {
+    const [budget, commitments, actuals, adjustments, project, contractChanges] = await Promise.all(
+        [
+          tx.budget.findFirst({
+            where: { projectId, active: true },
+            include: { versions: { include: { lines: true }, orderBy: { version: 'asc' } } },
+          }),
+          tx.commitmentLine.findMany({
+            where: {
+              commitment: {
+                projectId,
+                status: { in: ['COMMITTED', 'PARTIALLY_FULFILLED', 'FULFILLED'] },
+              },
+            },
+            include: { costCode: true },
+          }),
+          tx.actualCost.findMany({
+            where: { projectId, reversedAt: null },
+            include: { costCode: true },
+          }),
+          tx.forecastAdjustment.findMany({ where: { projectId }, include: { costCode: true } }),
+          tx.project.findUnique({ where: { id: projectId }, select: { contractAmount: true } }),
+          tx.contractAdjustment.aggregate({ where: { projectId }, _sum: { amount: true } }),
+        ],
+      ),
+      original = budget?.versions.find((x) => x.type === 'ORIGINAL'),
+      current = [...(budget?.versions || [])].reverse().find((x) => x.type !== 'ORIGINAL'),
+      rows = new Map<
+        string,
+        {
+          costCodeId: string;
+          code: string;
+          name: string;
+          type: CostCodeType;
+          original: Prisma.Decimal;
+          current: Prisma.Decimal;
+          committed: Prisma.Decimal;
+          actual: Prisma.Decimal;
+          adjustment: Prisma.Decimal;
+        }
+      >(),
+      row = (id: string, code: string, name: string, type: CostCodeType) => {
+        const key = `${id}:${type}`;
+        if (!rows.has(key))
+          rows.set(key, {
+            costCodeId: id,
+            code,
+            name,
+            type,
+            original: new Decimal(0),
+            current: new Decimal(0),
+            committed: new Decimal(0),
+            actual: new Decimal(0),
+            adjustment: new Decimal(0),
+          });
+        return rows.get(key)!;
       };
-    }),
-    sum = (field: 'original' | 'current' | 'committed' | 'actual' | 'forecast' | 'variance') =>
-      money(result.reduce((total, item) => total.add(item[field]), new Decimal(0))),
-    totals = {
-      original: sum('original'),
-      current: sum('current'),
-      committed: sum('committed'),
-      actual: sum('actual'),
-      forecast: sum('forecast'),
-      variance: sum('variance'),
-    },
-    contract = money(project?.contractAmount || 0),
-    profit = money(contract.sub(totals.forecast)),
-    showMargin = await can(actor, 'FINANCIAL_MARGIN_VIEW');
-  return {
-    rows: result,
-    totals,
-    summary: {
-      contract,
-      forecastProfit: showMargin ? profit : null,
-      forecastMargin: showMargin
-        ? contract.eq(0)
-          ? new Decimal(0)
-          : profit.div(contract).mul(100).toDecimalPlaces(2)
-        : null,
-    },
-  };
+    for (const x of original?.lines || []) {
+      const r = row(x.costCodeId, x.costCodeSnapshot, x.costCodeNameSnapshot, x.costType);
+      r.original = r.original.add(x.amount);
+    }
+    for (const x of current?.lines || []) {
+      const r = row(x.costCodeId, x.costCodeSnapshot, x.costCodeNameSnapshot, x.costType);
+      r.current = r.current.add(x.amount);
+    }
+    for (const x of commitments) {
+      const r = row(x.costCodeId, x.costCode.code, x.costCode.name, x.costType);
+      r.committed = r.committed.add(Decimal.max(0, x.committedAmount.sub(x.consumedAmount)));
+    }
+    for (const x of actuals) {
+      const r = row(x.costCodeId, x.costCode.code, x.costCode.name, x.costType);
+      r.actual = r.actual.add(x.amount);
+    }
+    for (const x of adjustments) {
+      const r = row(x.costCodeId, x.costCode.code, x.costCode.name, x.costType);
+      r.adjustment = r.adjustment.add(x.amount);
+    }
+    const result = [...rows.values()].map((x) => {
+        const forecast = money(Decimal.max(x.current, x.actual.add(x.committed).add(x.adjustment)));
+        return {
+          ...x,
+          original: money(x.original),
+          current: money(x.current),
+          committed: money(x.committed),
+          actual: money(x.actual),
+          forecast,
+          variance: money(x.current.sub(forecast)),
+        };
+      }),
+      sum = (field: 'original' | 'current' | 'committed' | 'actual' | 'forecast' | 'variance') =>
+        money(result.reduce((total, item) => total.add(item[field]), new Decimal(0))),
+      totals = {
+        original: sum('original'),
+        current: sum('current'),
+        committed: sum('committed'),
+        actual: sum('actual'),
+        forecast: sum('forecast'),
+        variance: sum('variance'),
+      },
+      originalContract = money(project?.contractAmount || 0),
+      approvedChanges = money(contractChanges._sum.amount || 0),
+      contract = money(originalContract.add(approvedChanges)),
+      profit = money(contract.sub(totals.forecast)),
+      showMargin = await can(actor, 'FINANCIAL_MARGIN_VIEW', tx);
+    return {
+      rows: result,
+      totals,
+      summary: {
+        originalContract,
+        approvedChanges,
+        contract,
+        forecastProfit: showMargin ? profit : null,
+        forecastMargin: showMargin
+          ? contract.eq(0)
+            ? new Decimal(0)
+            : profit.div(contract).mul(100).toDecimalPlaces(2)
+          : null,
+      },
+    };
+  });
 }
 
 export const actualCostSchema = z
   .object({
+    commitmentLineId: z.string().min(1).optional(),
     projectId: z.string(),
     costCodeId: z.string(),
     costType: z.enum(CostCodeType),
@@ -1044,6 +1025,9 @@ export async function createActualCost(actor: Actor, input: z.infer<typeof actua
   await requireCapability(actor, 'ACTUAL_COST_MANAGE');
   await requireProjectAccess(actor, input.projectId);
   return transaction(async (tx) => {
+    const linked = input.commitmentLineId
+      ? await consumeCommitment(tx, actor, { ...input, commitmentLineId: input.commitmentLineId })
+      : null;
     ensure(
       await tx.costCode.findFirst({ where: { id: input.costCodeId, active: true } }),
       'Active cost code not found.',
@@ -1056,10 +1040,13 @@ export async function createActualCost(actor: Actor, input: z.infer<typeof actua
         amount: money(input.amount),
         transactionDate: new Date(`${input.transactionDate}T00:00:00Z`),
         sourceType: 'MANUAL',
+        commitmentLineId: linked?.id,
+        vendorContactId: linked?.commitment.vendorContactId,
         description: input.description,
         createdById: actor.id,
       },
     });
+    if (linked) await refreshCommitment(tx, linked.commitmentId, actor);
     await publishProjectEvent(tx, {
       projectId: input.projectId,
       actorId: actor.id,
@@ -1069,5 +1056,8 @@ export async function createActualCost(actor: Actor, input: z.infer<typeof actua
       description: 'recorded a manual actual cost',
     });
     return item;
+  }).catch(async (error) => {
+    await reportOverage(actor, input.commitmentLineId, error);
+    throw error;
   });
 }

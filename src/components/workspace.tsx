@@ -79,7 +79,14 @@ export function Workspace({ path }: { path: string[] }) {
       (['', 'leads', 'projects', 'schedule', 'time', 'reports'].includes(i.view) &&
         managementUser) ||
       i.view === 'notifications' ||
-      (i.view === 'financials' && cap('COST_CODE_VIEW', 'COST_CODE_MANAGE')) ||
+      (i.view === 'financials' &&
+        cap(
+          'COST_CODE_VIEW',
+          'COST_CODE_MANAGE',
+          'PURCHASE_ORDER_VIEW',
+          'WORK_ORDER_VIEW',
+          'CHANGE_ORDER_VIEW',
+        )) ||
       (i.view === 'contacts' && cap('CONTACT_MANAGE')) ||
       (i.view === 'locate' && cap('TIME_APPROVE', 'ACCOUNTING_ACCESS')) ||
       (i.view === 'verify' && cap('TIME_APPROVE')) ||

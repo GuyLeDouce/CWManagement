@@ -22,6 +22,10 @@ A time activity may have a default cost code, and each time segment may record a
 
 Internal estimated cost, client price, budget, remaining commitment, actual cost, and forecast are separate values. Money uses PostgreSQL Decimal; line cost and markup round half-up to cents before aggregation. Percentage markup means markup on cost, never target margin. Gross margin is `(client price - cost) / client price`. Tax is applied only to taxable included client-price lines using `Settings.taxRate`; it is not revenue or internal budget.
 
-The initial forecast per Cost Code/Cost Type is `max(current budget, actual + remaining commitment + forecast adjustment)`. Remaining commitment is `committedAmount - consumedAmount`, so linked actuals do not double-count the original commitment. Phase 4 must update commitment consumption transactionally when PO/subcontract actuals arrive.
+The initial forecast per Cost Code/Cost Type is `max(current budget, actual + remaining commitment + forecast adjustment)`. Remaining commitment is `committedAmount - consumedAmount`, so linked actuals do not double-count the original commitment. Phase 4 updates consumption transactionally when a manual invoice is linked or an existing actual is reconciled, and restores consumption on reversal.
 
 QuickBooks remains ledger-authoritative. `ActualCost.externalSystem + sourceExternalId`, QuickBooks TxnID/EditSequence fields, and source types provide idempotent future imports into this normalized job-cost ledger.
+
+## Purchasing and contract changes
+
+Issued PO/WO revisions feed Commitment/CommitmentLine, excluding recoverable tax. Draft/approved documents have no exposure. Overage rejection requires purchasing revision, with no implicit override. Reversals preserve source actual rows and reconcile consumption. Accepted CO client price creates ContractAdjustment; estimated internal cost creates a new CHANGE_ORDER BudgetVersion. Project.contractAmount remains the original pre-tax contract. Tax is neither budget cost nor contract revenue here. No AP bills, AR, payroll, qbXML or connector services were added.

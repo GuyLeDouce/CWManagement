@@ -5,6 +5,7 @@ import { Archive, Check, FileText, Image as PhotoIcon, Plus } from 'lucide-react
 import { api, date, duration, pretty, useApi } from '@/lib/client';
 import { ActionButton, Badge, Empty, ErrorBox, Loading, Modal } from './ui';
 import { ProjectBudget, ProjectEstimate, ProjectProposals } from './financials';
+import { PurchasingWorkspace, ProcurementOverview } from './purchasing';
 
 type Person = { id: string; firstName: string; lastName: string };
 type Assignment = { id: string; role: string; primary: boolean; user: Person };
@@ -106,6 +107,8 @@ const tabs = [
   'estimate',
   'proposals',
   'budget',
+  'purchase-orders',
+  'change-orders',
   'daily-logs',
   'files',
   'photos',
@@ -158,6 +161,10 @@ export function ProjectWorkspace({ id, tab = 'overview' }: { id: string; tab?: s
             <ProjectProposals projectId={project.id} contacts={project.contacts} />
           ) : active === 'budget' ? (
             <ProjectBudget projectId={project.id} />
+          ) : active === 'purchase-orders' ? (
+            <PurchasingWorkspace projectId={project.id} />
+          ) : active === 'change-orders' ? (
+            <PurchasingWorkspace projectId={project.id} change />
           ) : active === 'daily-logs' ? (
             <DailyLogs project={project} />
           ) : active === 'files' ? (
@@ -182,6 +189,7 @@ function Overview({ project }: { project: Project }) {
   );
   return (
     <div className="management-grid">
+      <ProcurementOverview projectId={project.id} compact />
       <section className="panel wide">
         <h2>Project information</h2>
         <p>{project.description || 'No project description has been added.'}</p>
@@ -1025,7 +1033,7 @@ function ProjectSettings({ project, refresh }: { project: Project; refresh: () =
               />
             </label>
             <label>
-              Contract amount
+              Original contract value (excluding tax)
               <input
                 name="contractAmount"
                 type="number"

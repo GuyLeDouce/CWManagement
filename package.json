@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run tests/unit.test.ts tests/email.test.ts tests/management.test.ts tests/storage.test.ts tests/financial.test.ts",
-    "test:integration": "vitest run tests/integration.test.ts",
+    "test:integration": "vitest run tests/integration.test.ts tests/phase4.integration.test.ts",
     "test:e2e": "playwright test",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",

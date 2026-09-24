@@ -1,4 +1,78 @@
 @import 'tailwindcss';
+.purchasing-workspace {
+  display: grid;
+  gap: 1.25rem;
+}
+.purchasing-card .detail-header {
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+.modal:has(.purchasing-editor) {
+  width: min(1050px, 96vw);
+  max-width: 96vw;
+}
+.purchasing-editor {
+  min-width: 0;
+}
+.purchasing-line-editor {
+  border: 1px solid #ddd;
+  padding: 1rem;
+  border-radius: 8px;
+}
+.commitment-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid #ddd;
+}
+.commitment-row > span:first-child {
+  flex: 1;
+  min-width: 150px;
+}
+.purchasing-document p {
+  white-space: pre-wrap;
+}
+.purchasing-document table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+.purchasing-document td,
+.purchasing-document th {
+  padding: 0.6rem;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+.purchasing-document address {
+  font-style: normal;
+}
+@media (max-width: 650px) {
+  .purchasing-editor {
+    min-width: 0;
+  }
+  .purchasing-card .button-row {
+    flex-wrap: wrap;
+  }
+}
+@media print {
+  .purchasing-document {
+    width: 100%;
+    padding: 0;
+  }
+  .purchasing-document thead {
+    display: table-header-group;
+  }
+  .purchasing-document tr,
+  .purchasing-document .proposal-total {
+    break-inside: avoid;
+  }
+  .purchasing-document h2,
+  .purchasing-document h3 {
+    break-after: avoid;
+  }
+}
 :root {
   --paper: #f7f7f2;
   --surface: #fff;
@@ -2188,7 +2262,22 @@ tr:last-child td {
   }
   .proposal-document,
   .proposal-document * {
-    visibility: visible;
+    visibility: visible !important;
+  }
+  .modal:has(.proposal-document) {
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    height: auto;
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+    border-radius: 0;
+  }
+  .modal .proposal-document {
+    position: static;
+    width: 100%;
+    padding: 12mm;
   }
   .proposal-document {
     position: absolute;

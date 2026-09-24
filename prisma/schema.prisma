@@ -1,3 +1,198 @@
+enum PurchasingType {
+  PURCHASE_ORDER
+  WORK_ORDER
+}
+
+enum PurchasingStatus {
+  DRAFT
+  INTERNAL_REVIEW
+  APPROVED
+  ISSUED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+  SUPERSEDED
+}
+
+enum ChangeOrderStatus {
+  DRAFT
+  INTERNAL_REVIEW
+  READY
+  ISSUED
+  ACCEPTED
+  REJECTED
+  VOID
+  SUPERSEDED
+}
+
+model PurchasingDocument {
+  id          String               @id @default(cuid())
+  projectId   String
+  type        PurchasingType
+  number      String               @unique
+  cancelledAt DateTime?            @db.Timestamptz(3)
+  createdAt   DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime             @updatedAt @db.Timestamptz(3)
+  project     Project              @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  revisions   PurchasingRevision[]
+  commitment  Commitment?
+
+  @@index([projectId, type])
+}
+
+model PurchasingRevision {
+  id                    String               @id @default(cuid())
+  documentId            String
+  revision              Int
+  version               Int                  @default(1)
+  status                PurchasingStatus     @default(DRAFT)
+  vendorContactId       String
+  billingContactId      String?
+  changeOrderRevisionId String?
+  scheduleTaskId        String?
+  attachmentIds         String[]             @default([])
+  title                 String
+  scope                 String?
+  terms                 String?
+  internalNotes         String?
+  vendorNotes           String?
+  expectedDate          DateTime?            @db.Date
+  taxRate               Decimal              @db.Decimal(7, 6)
+  snapshot              Json?
+  subtotal              Decimal              @default(0) @db.Decimal(18, 2)
+  taxAmount             Decimal              @default(0) @db.Decimal(18, 2)
+  total                 Decimal              @default(0) @db.Decimal(18, 2)
+  createdById           String
+  approvedById          String?
+  issuedById            String?
+  approvedAt            DateTime?            @db.Timestamptz(3)
+  issuedAt              DateTime?            @db.Timestamptz(3)
+  acknowledgedAt        DateTime?            @db.Timestamptz(3)
+  createdAt             DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime             @updatedAt @db.Timestamptz(3)
+  document              PurchasingDocument   @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  vendorContact         Contact              @relation("PurchasingVendor", fields: [vendorContactId], references: [id], onDelete: Restrict)
+  billingContact        Contact?             @relation("PurchasingBilling", fields: [billingContactId], references: [id], onDelete: Restrict)
+  changeOrderRevision   ChangeOrderRevision? @relation(fields: [changeOrderRevisionId], references: [id], onDelete: Restrict)
+  scheduleTask          ProjectTask?         @relation(fields: [scheduleTaskId], references: [id], onDelete: Restrict)
+  lines                 PurchasingLine[]
+
+  @@unique([documentId, revision])
+}
+
+model PurchasingLine {
+  id                   String             @id @default(cuid())
+  revisionId           String
+  lineKey              String
+  costCodeId           String
+  costCodeSnapshot     String
+  costCodeNameSnapshot String
+  costType             CostCodeType
+  description          String
+  quantity             Decimal            @db.Decimal(18, 4)
+  unit                 String
+  unitCost             Decimal            @db.Decimal(18, 4)
+  amount               Decimal            @db.Decimal(18, 2)
+  taxable              Boolean            @default(true)
+  sortOrder            Int                @default(0)
+  internalNotes        String?
+  revision             PurchasingRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  costCode             CostCode           @relation(fields: [costCodeId], references: [id], onDelete: Restrict)
+
+  @@unique([revisionId, lineKey])
+}
+
+model ChangeOrder {
+  id                 String                @id @default(cuid())
+  projectId          String
+  number             String                @unique
+  createdAt          DateTime              @default(now()) @db.Timestamptz(3)
+  project            Project               @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  revisions          ChangeOrderRevision[]
+  contractAdjustment ContractAdjustment?
+
+  @@index([projectId])
+}
+
+model ChangeOrderRevision {
+  id                  String               @id @default(cuid())
+  changeOrderId       String
+  revision            Int
+  version             Int                  @default(1)
+  status              ChangeOrderStatus    @default(DRAFT)
+  title               String
+  description         String?
+  category            String?
+  internalNotes       String?
+  scope               String?
+  terms               String?
+  clientId            String?
+  attachmentIds       String[]             @default([])
+  scheduleDays        Int                  @default(0)
+  taxRate             Decimal              @db.Decimal(7, 6)
+  snapshot            Json?
+  costTotal           Decimal              @default(0) @db.Decimal(18, 2)
+  subtotal            Decimal              @default(0) @db.Decimal(18, 2)
+  taxAmount           Decimal              @default(0) @db.Decimal(18, 2)
+  total               Decimal              @default(0) @db.Decimal(18, 2)
+  createdById         String
+  approvedById        String?
+  issuedById          String?
+  acceptedById        String?
+  acceptedByName      String?
+  acceptanceMethod    String?
+  acceptanceReference String?
+  approvedAt          DateTime?            @db.Timestamptz(3)
+  issuedAt            DateTime?            @db.Timestamptz(3)
+  acceptedAt          DateTime?            @db.Timestamptz(3)
+  createdAt           DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(3)
+  changeOrder         ChangeOrder          @relation(fields: [changeOrderId], references: [id], onDelete: Restrict)
+  client              Contact?             @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  lines               ChangeOrderLine[]
+  purchasingRevisions PurchasingRevision[]
+  contractAdjustment  ContractAdjustment?
+  budgetVersion       BudgetVersion?
+
+  @@unique([changeOrderId, revision])
+}
+
+model ChangeOrderLine {
+  id                   String              @id @default(cuid())
+  revisionId           String
+  costCodeId           String
+  costCodeSnapshot     String
+  costCodeNameSnapshot String
+  costType             CostCodeType
+  description          String
+  clientDescription    String?
+  quantity             Decimal             @db.Decimal(18, 4)
+  unit                 String
+  unitCost             Decimal             @db.Decimal(18, 4)
+  markupMethod         MarkupMethod        @default(NONE)
+  markupValue          Decimal             @default(0) @db.Decimal(18, 4)
+  taxable              Boolean             @default(true)
+  sortOrder            Int                 @default(0)
+  revision             ChangeOrderRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  costCode             CostCode            @relation(fields: [costCodeId], references: [id], onDelete: Restrict)
+
+  @@index([revisionId])
+}
+
+model ContractAdjustment {
+  id            String              @id @default(cuid())
+  projectId     String
+  changeOrderId String              @unique
+  revisionId    String              @unique
+  amount        Decimal             @db.Decimal(18, 2)
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
+  project       Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  changeOrder   ChangeOrder         @relation(fields: [changeOrderId], references: [id], onDelete: Restrict)
+  revision      ChangeOrderRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+}
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -25,6 +220,23 @@ enum Role {
 }
 
 enum Capability {
+  PURCHASE_ORDER_VIEW
+  PURCHASE_ORDER_EDIT
+  PURCHASE_ORDER_APPROVE
+  PURCHASE_ORDER_ISSUE
+  WORK_ORDER_VIEW
+  WORK_ORDER_CREATE
+  WORK_ORDER_EDIT
+  WORK_ORDER_APPROVE
+  WORK_ORDER_ISSUE
+  CHANGE_ORDER_VIEW
+  CHANGE_ORDER_EDIT
+  CHANGE_ORDER_APPROVE_INTERNAL
+  CHANGE_ORDER_ISSUE
+  CHANGE_ORDER_ACCEPT
+  COMMITMENT_VIEW
+  COMMITMENT_MANAGE
+  ACTUAL_COST_RECONCILE
   PROJECT_VIEW_ALL
   PROJECT_VIEW_ASSIGNED
   PROJECT_CREATE
@@ -367,6 +579,9 @@ model PmJobsite {
 }
 
 model Project {
+  purchasingDocuments PurchasingDocument[]
+  changeOrders        ChangeOrder[]
+  contractAdjustments ContractAdjustment[]
   id                  String                  @id @default(cuid())
   name                String
   number              String                  @unique
@@ -429,6 +644,7 @@ model ProjectAssignment {
 }
 
 model Company {
+  active           Boolean   @default(true)
   id               String    @id @default(cuid())
   name             String    @unique
   legalName        String?
@@ -447,28 +663,31 @@ model Company {
 }
 
 model Contact {
-  id              String                @id @default(cuid())
-  firstName       String
-  lastName        String
-  companyId       String?
-  email           String?
-  phone           String?
-  address         String?
-  municipality    String?
-  province        String?
-  postalCode      String?
-  notes           String?
-  types           ContactType[]
-  active          Boolean               @default(true)
-  portalUserId    String?               @unique
-  company         Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  projects        ProjectContact[]
-  taskAssignments ProjectTaskAssignee[]
-  proposals       ProposalRevision[]
-  commitments     Commitment[]
-  actualCosts     ActualCost[]
-  createdAt       DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime              @updatedAt @db.Timestamptz(3)
+  purchasingRevisions  PurchasingRevision[]  @relation("PurchasingVendor")
+  billingRevisions     PurchasingRevision[]  @relation("PurchasingBilling")
+  changeOrderRevisions ChangeOrderRevision[]
+  id                   String                @id @default(cuid())
+  firstName            String
+  lastName             String
+  companyId            String?
+  email                String?
+  phone                String?
+  address              String?
+  municipality         String?
+  province             String?
+  postalCode           String?
+  notes                String?
+  types                ContactType[]
+  active               Boolean               @default(true)
+  portalUserId         String?               @unique
+  company              Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  projects             ProjectContact[]
+  taskAssignments      ProjectTaskAssignee[]
+  proposals            ProposalRevision[]
+  commitments          Commitment[]
+  actualCosts          ActualCost[]
+  createdAt            DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime              @updatedAt @db.Timestamptz(3)
 
   @@index([lastName, firstName])
   @@index([companyId])
@@ -506,26 +725,27 @@ model AccountingSyncMapping {
 }
 
 model ProjectTask {
-  id              String                  @id @default(cuid())
-  projectId       String
-  name            String
-  description     String?
-  status          ProjectTaskStatus       @default(NOT_STARTED)
-  startDate       DateTime?               @db.Date
-  endDate         DateTime?               @db.Date
-  actualStartDate DateTime?               @db.Date
-  actualEndDate   DateTime?               @db.Date
-  milestone       Boolean                 @default(false)
-  sortOrder       Int                     @default(0)
-  createdById     String
-  archivedAt      DateTime?               @db.Timestamptz(3)
-  createdAt       DateTime                @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime                @updatedAt @db.Timestamptz(3)
-  project         Project                 @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  createdBy       User                    @relation("ProjectTaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  assignees       ProjectTaskAssignee[]
-  predecessors    ProjectTaskDependency[] @relation("Successor")
-  successors      ProjectTaskDependency[] @relation("Predecessor")
+  purchasingRevisions PurchasingRevision[]
+  id                  String                  @id @default(cuid())
+  projectId           String
+  name                String
+  description         String?
+  status              ProjectTaskStatus       @default(NOT_STARTED)
+  startDate           DateTime?               @db.Date
+  endDate             DateTime?               @db.Date
+  actualStartDate     DateTime?               @db.Date
+  actualEndDate       DateTime?               @db.Date
+  milestone           Boolean                 @default(false)
+  sortOrder           Int                     @default(0)
+  createdById         String
+  archivedAt          DateTime?               @db.Timestamptz(3)
+  createdAt           DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime                @updatedAt @db.Timestamptz(3)
+  project             Project                 @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  createdBy           User                    @relation("ProjectTaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignees           ProjectTaskAssignee[]
+  predecessors        ProjectTaskDependency[] @relation("Successor")
+  successors          ProjectTaskDependency[] @relation("Predecessor")
 
   @@index([projectId, archivedAt, startDate])
   @@index([status, endDate])
@@ -628,6 +848,8 @@ model Notification {
 }
 
 model CostCode {
+  purchasingLines     PurchasingLine[]
+  changeOrderLines    ChangeOrderLine[]
   id                  String               @id @default(cuid())
   code                String               @unique
   name                String
@@ -806,16 +1028,18 @@ model Budget {
 }
 
 model BudgetVersion {
-  id          String            @id @default(cuid())
-  budgetId    String
-  version     Int
-  type        BudgetVersionType
-  description String?
-  createdById String
-  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
-  budget      Budget            @relation(fields: [budgetId], references: [id], onDelete: Restrict)
-  createdBy   User              @relation("BudgetVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  lines       BudgetLine[]
+  changeOrderRevisionId String?              @unique
+  changeOrderRevision   ChangeOrderRevision? @relation(fields: [changeOrderRevisionId], references: [id], onDelete: Restrict)
+  id                    String               @id @default(cuid())
+  budgetId              String
+  version               Int
+  type                  BudgetVersionType
+  description           String?
+  createdById           String
+  createdAt             DateTime             @default(now()) @db.Timestamptz(3)
+  budget                Budget               @relation(fields: [budgetId], references: [id], onDelete: Restrict)
+  createdBy             User                 @relation("BudgetVersionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines                 BudgetLine[]
 
   @@unique([budgetId, version])
 }
@@ -837,28 +1061,31 @@ model BudgetLine {
 }
 
 model Commitment {
-  id              String              @id @default(cuid())
-  projectId       String
-  vendorContactId String?
-  status          CommitmentStatus    @default(DRAFT)
-  sourceType      FinancialSourceType
-  sourceId        String?
-  reference       String?
-  description     String?
-  committedDate   DateTime?           @db.Date
-  externalSystem  String?
-  externalId      String?
-  project         Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  vendorContact   Contact?            @relation(fields: [vendorContactId], references: [id], onDelete: Restrict)
-  lines           CommitmentLine[]
-  createdAt       DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime            @updatedAt @db.Timestamptz(3)
+  purchasingDocumentId String?             @unique
+  purchasingDocument   PurchasingDocument? @relation(fields: [purchasingDocumentId], references: [id], onDelete: Restrict)
+  id                   String              @id @default(cuid())
+  projectId            String
+  vendorContactId      String?
+  status               CommitmentStatus    @default(DRAFT)
+  sourceType           FinancialSourceType
+  sourceId             String?
+  reference            String?
+  description          String?
+  committedDate        DateTime?           @db.Date
+  externalSystem       String?
+  externalId           String?
+  project              Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  vendorContact        Contact?            @relation(fields: [vendorContactId], references: [id], onDelete: Restrict)
+  lines                CommitmentLine[]
+  createdAt            DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime            @updatedAt @db.Timestamptz(3)
 
   @@unique([externalSystem, externalId])
   @@index([projectId, status])
 }
 
 model CommitmentLine {
+  sourceLineKey   String?
   id              String       @id @default(cuid())
   commitmentId    String
   costCodeId      String
@@ -870,10 +1097,13 @@ model CommitmentLine {
   costCode        CostCode     @relation(fields: [costCodeId], references: [id], onDelete: Restrict)
   actualCosts     ActualCost[]
 
+  @@unique([commitmentId, sourceLineKey])
   @@index([costCodeId, costType])
 }
 
 model ActualCost {
+  reversedById           String?
+  reversalReason         String?
   id                     String              @id @default(cuid())
   projectId              String
   costCodeId             String
@@ -1128,16 +1358,24 @@ model ExportItem {
 }
 
 model Settings {
-  id                 String  @id @default("company")
-  timezone           String  @default("America/Toronto")
-  reportRecipient    String  @default("")
-  weekStartsOn       Int     @default(1)
-  taxRate            Decimal @default(0.13) @db.Decimal(7, 6)
-  estimatePrefix     String  @default("EST")
-  proposalPrefix     String  @default("P")
-  nextEstimateNumber Int     @default(1)
-  nextProposalNumber Int     @default(1)
-  legalName          String  @default("Cedar Winds Design~Build")
-  companyAddress     String  @default("")
-  proposalTerms      String  @default("")
+  purchaseOrderPrefix     String  @default("PO")
+  nextPurchaseOrderNumber Int     @default(1)
+  workOrderPrefix         String  @default("WO")
+  nextWorkOrderNumber     Int     @default(1)
+  changeOrderPrefix       String  @default("CO")
+  nextChangeOrderNumber   Int     @default(1)
+  purchasingTerms         String  @default("")
+  changeOrderTerms        String  @default("")
+  id                      String  @id @default("company")
+  timezone                String  @default("America/Toronto")
+  reportRecipient         String  @default("")
+  weekStartsOn            Int     @default(1)
+  taxRate                 Decimal @default(0.13) @db.Decimal(7, 6)
+  estimatePrefix          String  @default("EST")
+  proposalPrefix          String  @default("P")
+  nextEstimateNumber      Int     @default(1)
+  nextProposalNumber      Int     @default(1)
+  legalName               String  @default("Cedar Winds Design~Build")
+  companyAddress          String  @default("")
+  proposalTerms           String  @default("")
 }

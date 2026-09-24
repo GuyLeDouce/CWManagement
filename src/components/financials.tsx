@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Plus, Printer } from 'lucide-react';
 import { api, pretty, useApi } from '@/lib/client';
 import { ActionButton, Badge, Empty, ErrorBox, Loading, Modal } from './ui';
+import { ProcurementOverview, VarianceAlerts, BudgetHistory } from './purchasing';
 
 const types = ['LABOUR', 'MATERIAL', 'SUBCONTRACT', 'EQUIPMENT', 'OTHER'];
 type Code = {
@@ -102,6 +103,8 @@ export function FinancialsScreen() {
   );
   return (
     <div className="management-page">
+      <ProcurementOverview />
+      <VarianceAlerts />
       <div className="page-heading management-heading">
         <div>
           <span className="eyebrow">Settings · Financial</span>
@@ -183,6 +186,11 @@ function FinancialSettings() {
         legalName: string;
         companyAddress: string;
         proposalTerms: string;
+        purchaseOrderPrefix: string;
+        workOrderPrefix: string;
+        changeOrderPrefix: string;
+        purchasingTerms: string;
+        changeOrderTerms: string;
       };
     }>('financial/settings'),
     [open, setOpen] = useState(false);
@@ -236,6 +244,20 @@ function FinancialSettings() {
               Default proposal terms
               <textarea name="proposalTerms" defaultValue={settings.proposalTerms} />
             </label>
+            {(['purchaseOrderPrefix', 'workOrderPrefix', 'changeOrderPrefix'] as const).map(
+              (name) => (
+                <label key={name}>
+                  {pretty(name)}
+                  <input name={name} defaultValue={settings[name]} />
+                </label>
+              ),
+            )}
+            {(['purchasingTerms', 'changeOrderTerms'] as const).map((name) => (
+              <label key={name}>
+                {pretty(name)}
+                <textarea name={name} defaultValue={settings[name]} />
+              </label>
+            ))}
             <ActionButton
               className="primary full"
               action={async () => {
@@ -925,7 +947,13 @@ export function ProjectBudget({ projectId }: { projectId: string }) {
         forecast: string;
         variance: string;
       };
-      summary: { contract: string; forecastProfit: string | null; forecastMargin: string | null };
+      summary: {
+        originalContract: string;
+        approvedChanges: string;
+        contract: string;
+        forecastProfit: string | null;
+        forecastMargin: string | null;
+      };
     }>(`financial/job-cost?projectId=${projectId}`),
     [actual, setActual] = useState(false),
     codes = useApi<{ costCodes: Code[] }>('financial/cost-codes?active=true');
@@ -943,7 +971,17 @@ export function ProjectBudget({ projectId }: { projectId: string }) {
       {query.data && (
         <>
           <div className="finance-summary">
-            <Metric label="Contract" value={dollars(query.data.summary.contract)} />
+            <Metric
+              label="Original contract"
+              value={dollars(query.data.summary.originalContract)}
+            />
+            <Metric
+              label="Approved change orders"
+              value={dollars(query.data.summary.approvedChanges)}
+            />
+            <Metric label="Current contract" value={dollars(query.data.summary.contract)} />
+            <Metric label="Original budget" value={dollars(query.data.totals.original)} />
+            <Metric label="Remaining committed" value={dollars(query.data.totals.committed)} />
             <Metric label="Current budget" value={dollars(query.data.totals.current)} />
             <Metric label="Actual" value={dollars(query.data.totals.actual)} />
             <Metric label="Forecast" value={dollars(query.data.totals.forecast)} />
@@ -985,6 +1023,7 @@ export function ProjectBudget({ projectId }: { projectId: string }) {
           </div>
         </>
       )}
+      <BudgetHistory projectId={projectId} />
       {actual && (
         <ActualForm
           projectId={projectId}
