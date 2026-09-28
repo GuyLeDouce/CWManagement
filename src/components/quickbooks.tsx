@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { api, useApi } from '@/lib/client';
 import type { dashboard } from '@/lib/quickbooks/admin';
 import { ActionButton, ErrorBox, Loading } from './ui';
+import { QuickBooksPilot, QuickBooksPreview, QuickBooksRun } from './quickbooks-pilot';
 type Data = Awaited<ReturnType<typeof dashboard>>;
 export function QuickBooksScreen() {
   const { data, error, refresh } = useApi<Data>('quickbooks/dashboard');
@@ -89,10 +90,25 @@ export function QuickBooksScreen() {
           </label>
           <label>
             Mode
-            <select name="mode" defaultValue={c?.mode ?? 'DISCOVERY'}>
+            <select name="mode" aria-label="QuickBooks mode" defaultValue={c?.mode ?? 'DISCOVERY'}>
               <option>DISCOVERY</option>
+              <option>PILOT</option>
               <option>ACTIVE</option>
+              <option>PAUSED</option>
             </select>
+          </label>
+          <label>
+            <input type="checkbox" name="confirmActivation" />I deliberately authorize unrestricted
+            ACTIVE synchronization after reviewing pilot exit checks.
+          </label>
+          <label>
+            Activation reason
+            <input name="activationReason" />
+          </label>
+          <label>
+            <input type="checkbox" name="ownerOverride" />
+            Owner override of incomplete live evidence (reason required; does not mark live
+            validated)
           </label>
           <label>
             <input type="checkbox" name="syncEnabled" defaultChecked={c?.syncEnabled ?? true} />
@@ -102,6 +118,11 @@ export function QuickBooksScreen() {
             <input type="checkbox" name="confirmCompany" />I verified this company:{' '}
             {c?.companyName ?? 'Not connected'}
           </label>
+          <p>
+            Detected company file: {c?.companyFileName ?? 'Not yet observed'}. Binding:{' '}
+            {c?.boundCompanyHash ? 'Bound; changes require administrative review' : 'Not bound'}.
+            Confirm above to bind CWManagement to this company file.
+          </p>
           <label>
             <input type="checkbox" name="rotatePassword" />
             Rotate password and expire existing tickets
@@ -126,6 +147,9 @@ export function QuickBooksScreen() {
                   confirmCompany: f.has('confirmCompany'),
                   rotatePassword: f.has('rotatePassword'),
                   confirmRotation: f.has('rotatePassword'),
+                  confirmActivation: f.has('confirmActivation'),
+                  activationReason: f.get('activationReason') || undefined,
+                  ownerOverride: f.has('ownerOverride'),
                 },
               );
               setSelected(result.id);
@@ -152,6 +176,7 @@ export function QuickBooksScreen() {
       </section>
       {c && (
         <>
+          <QuickBooksPilot connectionId={c.id} data={data} onDone={refresh} />
           <section className="card">
             <h2>{c.health}</h2>
             <p>
@@ -310,7 +335,60 @@ export function QuickBooksScreen() {
           </section>
           <section className="card">
             <h2>Queue approved records</h2>
-            <form onSubmit={e=>e.preventDefault()}><h3>Explicit Customer:Job / Vendor creation</h3><p>Map an existing record first whenever possible. This action creates a QuickBooks name on the next connector run.</p><select name="operation" aria-label="Create entity type"><option value="CREATE_PROJECT">Customer:Job</option><option value="CREATE_VENDOR">Vendor</option></select><select name="entityId" aria-label="Local entity to create"><optgroup label="Projects">{data.options.PROJECT.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</optgroup><optgroup label="Vendor Contacts">{data.options.VENDOR_CONTACT.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</optgroup></select><label>QuickBooks name<input name="name" maxLength={41}/></label><label>Parent Customer (Projects only)<select name="parentListId"><option value="">Create a top-level Customer</option>{data.candidates.filter(x=>x.connectionId===id&&x.type==='Customer'&&x.active).map(x=><option key={x.id} value={x.listId}>{x.fullName}</option>)}</select></label><ActionButton action={()=>submit(document.getElementById('create-qb')!.closest('form')!,'queue',{connectionId:id})}>Queue explicit creation</ActionButton><span id="create-qb"/></form>
+            <form onSubmit={(e) => e.preventDefault()}>
+              <h3>Explicit Customer:Job / Vendor creation</h3>
+              <p>
+                Map an existing record first whenever possible. This action creates a QuickBooks
+                name on the next connector run.
+              </p>
+              <select name="operation" aria-label="Create entity type">
+                <option value="CREATE_PROJECT">Customer:Job</option>
+                <option value="CREATE_VENDOR">Vendor</option>
+              </select>
+              <select name="entityId" aria-label="Local entity to create">
+                <optgroup label="Projects">
+                  {data.options.PROJECT.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Vendor Contacts">
+                  {data.options.VENDOR_CONTACT.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+              <label>
+                QuickBooks name
+                <input name="name" maxLength={41} />
+              </label>
+              <label>
+                Parent Customer (Projects only)
+                <select name="parentListId">
+                  <option value="">Create a top-level Customer</option>
+                  {data.candidates
+                    .filter((x) => x.connectionId === id && x.type === 'Customer' && x.active)
+                    .map((x) => (
+                      <option key={x.id} value={x.listId}>
+                        {x.fullName}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <ActionButton
+                action={() =>
+                  submit(document.getElementById('create-qb')!.closest('form')!, 'queue', {
+                    connectionId: id,
+                  })
+                }
+              >
+                Queue explicit creation
+              </ActionButton>
+              <span id="create-qb" />
+            </form>
             <form onSubmit={(e) => e.preventDefault()}>
               <select name="entityId" aria-label="Issued purchase order">
                 {data.purchasing.map((p) => (
@@ -330,6 +408,7 @@ export function QuickBooksScreen() {
                 Queue Purchase Order
               </ActionButton>
               <span id="po-queue" />
+              <QuickBooksPreview connectionId={c.id} operation="PURCHASE_ORDER" marker="po-queue" />
             </form>
             <form onSubmit={(e) => e.preventDefault()}>
               <select name="entityId" aria-label="Approved time">
@@ -350,6 +429,7 @@ export function QuickBooksScreen() {
                 Queue approved time
               </ActionButton>
               <span id="time-queue" />
+              <QuickBooksPreview connectionId={c.id} operation="TIME" marker="time-queue" />
             </form>
           </section>
           <section className="card">
@@ -362,7 +442,37 @@ export function QuickBooksScreen() {
                     {j.operation} — {j.status}
                   </strong>
                   <p>{j.lastError}</p>
-                  {j.operation==='PURCHASE_ORDER'&&j.status==='RECONCILIATION_REQUIRED'&&<ActionButton action={()=>api('quickbooks/reconcile',{action:'refresh-po',id:j.id,note:'Operator requested current QuickBooks transaction before review.'})} onDone={()=>void refresh()}>Refresh QuickBooks PO for review</ActionButton>}
+                  {data.mappings
+                    .filter(
+                      (m) =>
+                        m.connectionId === id &&
+                        m.quickBooksTxnId &&
+                        (m.entityId === j.entityId ||
+                          (m.metadata as { revisionId?: string } | null)?.revisionId ===
+                            j.entityId),
+                    )
+                    .map((m) => (
+                      <p key={m.id}>
+                        QuickBooks TxnID: {m.quickBooksTxnId} · EditSequence:{' '}
+                        {m.quickBooksEditSequence} · {m.status} · Synchronized{' '}
+                        {String(m.lastSyncedAt)}. Locate the PO by its number/Memo, or time by
+                        Employee and date, in QuickBooks Desktop and compare every value.
+                      </p>
+                    ))}
+                  {j.operation === 'PURCHASE_ORDER' && j.status === 'RECONCILIATION_REQUIRED' && (
+                    <ActionButton
+                      action={() =>
+                        api('quickbooks/reconcile', {
+                          action: 'refresh-po',
+                          id: j.id,
+                          note: 'Operator requested current QuickBooks transaction before review.',
+                        })
+                      }
+                      onDone={() => void refresh()}
+                    >
+                      Refresh QuickBooks PO for review
+                    </ActionButton>
+                  )}
                   {j.status === 'RECONCILIATION_REQUIRED' && j.phase !== 'MOD_REVIEW' && (
                     <ActionButton
                       action={async () => {
@@ -468,9 +578,10 @@ export function QuickBooksScreen() {
             {data.runs
               .filter((x) => x.connectionId === id)
               .map((r) => (
-                <p key={r.id}>
+                <div key={r.id}>
                   {String(r.startedAt)} — {r.status}: {r.succeeded} succeeded, {r.failed} failed
-                </p>
+                  <QuickBooksRun id={r.id} />
+                </div>
               ))}
           </section>
         </>

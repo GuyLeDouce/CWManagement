@@ -1,5 +1,7 @@
 # QuickBooks Desktop integration
 
+Phase 7.5 adds enforced DISCOVERY/PILOT/ACTIVE/PAUSED modes, explicit source allowlists, reviewed Bill application, persistent holds, live-result evidence and activation gates. [Current pilot rules](QUICKBOOKS_PILOT.md) take precedence over Phase 7's original activation description below. DISCOVERY and PAUSED do not apply ActualCost; PILOT never automatically applies queried Bills. Missing Job lines require explicit allocation/ignore rather than silent exclusion.
+
 Software implementation is present; **live Cedar Winds QuickBooks validation is pending**. Start with a backup/test company, discovery mode and the [live checklist](QUICKBOOKS_LIVE_VALIDATION.md). The supported accounting scope and limitations below are intentional controls, not claims of compatibility with an untested company file.
 
 ## Authority and direction

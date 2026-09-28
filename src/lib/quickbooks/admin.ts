@@ -7,8 +7,17 @@ import { hashPassword, randomToken } from '../crypto';
 import { lockConnection, qbAudit, resolveIssue } from './state';
 import { saveMapping, mappingSchema } from './mapping';
 import { queue, queueSchema, enqueue } from './queue';
-import { applyBill } from './bills';
+import { applyBill, holdBill, lineDecisionSchema } from './bills';
 import { qwc, quickBooksUrl } from './qwc';
+import {
+  preflight,
+  exitChecks,
+  pilotSaveSchema,
+  savePilot,
+  evidenceSchema,
+  recordEvidence,
+} from './pilot';
+import { previewRequest, pilotDashboard, runDetail } from './diagnostics';
 export const configureSchema = z
   .object({
     id: z.string().optional(),
@@ -19,7 +28,10 @@ export const configureSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
-    mode: z.enum(['DISCOVERY', 'ACTIVE']).default('DISCOVERY'),
+    mode: z.enum(['DISCOVERY', 'PILOT', 'ACTIVE', 'PAUSED']).default('DISCOVERY'),
+    confirmActivation: z.boolean().default(false),
+    activationReason: z.string().trim().max(1000).optional(),
+    ownerOverride: z.boolean().default(false),
     syncEnabled: z.boolean().default(true),
     confirmCompany: z.boolean().default(false),
     rotatePassword: z.boolean().default(false),
@@ -42,14 +54,47 @@ export async function configure(actor: Actor, input: z.infer<typeof configureSch
       'Confirm that rotating the password disconnects the existing Web Connector configuration.',
     );
     ensure(
-      !old?.companyMismatch || !input.syncEnabled || (input.confirmCompany&&old.companyHash===old.boundCompanyHash),
+      !old?.companyMismatch ||
+        !input.syncEnabled ||
+        (input.confirmCompany && old.companyHash === old.boundCompanyHash),
       'Company mismatch must be investigated; this screen cannot silently rebind accounting history.',
     );
     const bound = old?.boundCompanyHash ?? (input.confirmCompany ? old?.companyHash : null);
     ensure(
-      input.mode !== 'ACTIVE' || bound,
+      !['ACTIVE', 'PILOT'].includes(input.mode) || bound,
       'Connect in discovery mode and confirm the company before activation.',
     );
+    let liveValidatedAt = old?.liveValidatedAt;
+    if (['PILOT', 'ACTIVE'].includes(input.mode) && old?.mode !== input.mode) {
+      ensure(old, 'Configure discovery and bind a company first.');
+      const checks = await preflight(tx, { ...old, boundCompanyHash: bound ?? null });
+      const failures = checks.filter((x) => !x.ok);
+      ensure(!failures.length, failures.map((x) => x.name + ': ' + x.detail).join(' '));
+      if (input.mode === 'ACTIVE') {
+        ensure(
+          input.confirmActivation && input.activationReason && input.activationReason.length >= 10,
+          'Explicit activation confirmation and a reason are required.',
+        );
+        const exit = await exitChecks(tx, old);
+        const complete =
+          !exit.missing.length &&
+          exit.discovery &&
+          exit.po &&
+          exit.time &&
+          exit.bill &&
+          exit.modified;
+        ensure(
+          complete || (input.ownerOverride && actor.roles.includes('OWNER')),
+          'Live pilot exit checks are incomplete. Only an Owner can override with a recorded reason.',
+        );
+        liveValidatedAt = complete ? new Date() : null;
+        await qbAudit(tx, actor.id, 'QUICKBOOKS_ACTIVATION_AUTHORIZED', old.id, {
+          reason: input.activationReason,
+          override: !complete,
+          missing: exit.missing,
+        });
+      }
+    }
     if (input.importStartDate)
       ensure(!Number.isNaN(Date.parse(input.importStartDate)), 'Invalid import start date.');
     const data = {
@@ -60,7 +105,10 @@ export async function configure(actor: Actor, input: z.infer<typeof configureSch
       mode: input.mode,
       syncEnabled: input.syncEnabled,
       boundCompanyHash: bound,
-      ...(old?.companyMismatch&&input.confirmCompany&&old.companyHash===old.boundCompanyHash?{companyMismatch:false,lastError:null}:{}),
+      liveValidatedAt,
+      ...(old?.companyMismatch && input.confirmCompany && old.companyHash === old.boundCompanyHash
+        ? { companyMismatch: false, lastError: null }
+        : {}),
       actorId: actor.id,
     };
     const row = old
@@ -76,6 +124,12 @@ export async function configure(actor: Actor, input: z.infer<typeof configureSch
             fileGuid: randomUUID(),
           },
         });
+    if (!old?.boundCompanyHash && bound)
+      await qbAudit(tx, actor.id, 'QUICKBOOKS_COMPANY_BOUND', row.id, {
+        companyName: old?.companyName,
+        companyFileName: old?.companyFileName,
+        companyHash: bound,
+      });
     if (passwordHash && old)
       await tx.quickBooksSyncSession.updateMany({
         where: { connectionId: old.id, completedAt: null },
@@ -132,6 +186,10 @@ export async function dashboard(actor: Actor) {
         lastError: true,
         importStartDate: true,
         billCursor: true,
+        pilotConfig: true,
+        backupConfirmedAt: true,
+        liveValidatedAt: true,
+        lastAuthFailureAt: true,
       },
     }),
     db.quickBooksCandidate.findMany({ orderBy: { fullName: 'asc' } }),
@@ -210,13 +268,18 @@ export async function dashboard(actor: Actor) {
         ? 'DISABLED'
         : c.companyMismatch
           ? 'COMPANY_MISMATCH'
-          : !c.lastConnectedAt
-            ? 'NEVER_CONNECTED'
-            : Date.now() - c.lastConnectedAt.getTime() > c.intervalMinutes * 180000
-              ? 'STALE'
-              : issues.some((i) => i.connectionId === c.id)
-                ? 'REVIEW'
-                : 'CONNECTED_RECENTLY',
+          : c.mode === 'PAUSED'
+            ? 'PAUSED'
+            : c.lastAuthFailureAt &&
+                (!c.lastAuthenticatedAt || c.lastAuthFailureAt > c.lastAuthenticatedAt)
+              ? 'AUTHENTICATION_FAILURE'
+              : !c.lastConnectedAt
+                ? 'NEVER_CONNECTED'
+                : Date.now() - c.lastConnectedAt.getTime() > c.intervalMinutes * 180000
+                  ? 'STALE'
+                  : issues.some((i) => i.connectionId === c.id)
+                    ? 'REVIEW'
+                    : 'CONNECTED_RECENTLY',
     })),
     candidates,
     mappings,
@@ -246,10 +309,23 @@ export async function downloadQwc(actor: Actor, id: string) {
 }
 const actionSchema = z
   .object({
-    action: z.enum(['retry', 'resolve', 'bill', 'approve-po', 'verify-write','refresh-po']),
+    action: z.enum([
+      'retry',
+      'resolve',
+      'bill',
+      'bill-preview',
+      'bill-allocate',
+      'bill-hold',
+      'bill-restore',
+      'approve-po',
+      'verify-write',
+      'refresh-po',
+    ]),
     id: z.string().min(1),
     note: z.string().trim().min(3).max(1000),
     lineLinks: z.record(z.string(), z.string()).optional(),
+    lineDecisions: z.record(z.string(), lineDecisionSchema).optional(),
+    reviewedHash: z.string().optional(),
     txnId: z.string().trim().min(1).max(100).optional(),
   })
   .strict();
@@ -262,21 +338,77 @@ export async function reconcile(actor: Actor, input: z.infer<typeof actionSchema
       await resolveIssue(tx, actor, row.id, input.note);
       return { ok: true };
     }
-    if (input.action === 'bill') {
+    if (input.action.startsWith('bill')) {
+      await requireCapability(actor, 'ACTUAL_COST_RECONCILE', tx);
       const row = await tx.quickBooksBillMirror.findUniqueOrThrow({ where: { id: input.id } });
       await lockConnection(tx, row.connectionId);
+      if (input.action === 'bill-preview') return applyBill(tx, actor, row.id, { preview: true });
+      if (input.action === 'bill-hold') {
+        await holdBill(tx, actor, row.id, input.note);
+        return { ok: true };
+      }
+      if (input.action === 'bill-restore') {
+        await tx.quickBooksBillMirror.update({
+          where: { id: row.id },
+          data: {
+            suppressedAt: null,
+            appliedHash: null,
+            status: 'REVIEW_REQUIRED',
+            lastError: null,
+          },
+        });
+        await qbAudit(tx, actor.id, 'QUICKBOOKS_BILL_RESTORED_FOR_REVIEW', row.id, {
+          reason: input.note,
+        });
+        return { ok: true };
+      }
+      if (input.action === 'bill-allocate') {
+        ensure(input.lineDecisions || input.lineLinks, 'Select a reviewed allocation.');
+        await tx.quickBooksBillMirror.update({
+          where: { id: row.id },
+          data: {
+            status: 'REVIEW_REQUIRED',
+            ...(input.lineDecisions ? { lineDecisions: json(input.lineDecisions) } : {}),
+            ...(input.lineLinks ? { lineLinks: json(input.lineLinks) } : {}),
+          },
+        });
+        await qbAudit(tx, actor.id, 'QUICKBOOKS_BILL_ALLOCATION_REVIEWED', row.id, {
+          reason: input.note,
+          lineDecisions: input.lineDecisions,
+          lineLinks: input.lineLinks,
+        });
+        return { ok: true };
+      }
       if (input.lineLinks)
         await tx.quickBooksBillMirror.update({
           where: { id: row.id },
           data: { lineLinks: json(input.lineLinks) },
         });
-      await applyBill(tx, actor, row.id);
+      await applyBill(tx, actor, row.id, { reviewedHash: input.reviewedHash, reason: input.note });
+      await qbAudit(tx, actor.id, 'QUICKBOOKS_BILL_REVIEW_REQUESTED', row.id, {
+        reason: input.note,
+      });
       return { ok: true };
     }
     const job = await tx.quickBooksSyncJob.findUniqueOrThrow({ where: { id: input.id } });
     await lockConnection(tx, job.connectionId);
-    if(input.action==='refresh-po'){
-      ensure(job.operation==='PURCHASE_ORDER'&&job.status==='RECONCILIATION_REQUIRED','Choose a purchasing reconciliation job.');ensure(!(await tx.quickBooksRequest.findFirst({where:{jobId:job.id,isWrite:true,completedAt:null}})),'Verify the uncertain accounting write before refreshing.');await tx.quickBooksSyncJob.update({where:{id:job.id},data:{phase:'INITIAL',status:'PENDING'}});await qbAudit(tx,actor.id,'QUICKBOOKS_PO_REFRESH_QUEUED',job.id,{note:input.note});return {ok:true};
+    if (input.action === 'refresh-po') {
+      ensure(
+        job.operation === 'PURCHASE_ORDER' && job.status === 'RECONCILIATION_REQUIRED',
+        'Choose a purchasing reconciliation job.',
+      );
+      ensure(
+        !(await tx.quickBooksRequest.findFirst({
+          where: { jobId: job.id, isWrite: true, completedAt: null },
+        })),
+        'Verify the uncertain accounting write before refreshing.',
+      );
+      await tx.quickBooksSyncJob.update({
+        where: { id: job.id },
+        data: { phase: 'INITIAL', status: 'PENDING' },
+      });
+      await qbAudit(tx, actor.id, 'QUICKBOOKS_PO_REFRESH_QUEUED', job.id, { note: input.note });
+      return { ok: true };
     }
     if (input.action === 'verify-write') {
       ensure(
@@ -363,6 +495,27 @@ export async function reconcile(actor: Actor, input: z.infer<typeof actionSchema
 }
 export async function dispatchQuickBooks(actor: Actor, get: boolean, path: string, body: unknown) {
   if (get && path === 'dashboard') return dashboard(actor);
+  if (!get && path === 'pilot') return savePilot(actor, pilotSaveSchema.parse(body));
+  if (!get && path === 'evidence') return recordEvidence(actor, evidenceSchema.parse(body));
+  if (!get && path === 'preflight')
+    return pilotDashboard(
+      actor,
+      z.object({ connectionId: z.string() }).strict().parse(body).connectionId,
+    );
+  if (!get && path === 'preview')
+    return previewRequest(
+      actor,
+      z
+        .object({
+          connectionId: z.string(),
+          operation: z.enum(['PURCHASE_ORDER', 'TIME']),
+          entityId: z.string(),
+        })
+        .strict()
+        .parse(body),
+    );
+  if (!get && path === 'run')
+    return runDetail(actor, z.object({ id: z.string() }).strict().parse(body).id);
   if (!get && path === 'configure') return configure(actor, configureSchema.parse(body));
   if (!get && path === 'mapping') return saveMapping(actor, mappingSchema.parse(body));
   if (!get && path === 'queue') return queue(actor, queueSchema.parse(body));

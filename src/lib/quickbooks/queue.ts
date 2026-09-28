@@ -3,6 +3,8 @@ import { Actor, requireCapability } from '../permissions';
 import { transaction, Tx, json } from '../db';
 import { ensure } from '../errors';
 import { lockConnection, qbAudit } from './state';
+import { permitOutbound } from './pilot';
+import { buildRequest } from './requests';
 export const queueSchema = z
   .object({
     connectionId: z.string().min(1),
@@ -85,12 +87,9 @@ export async function queue(actor: Actor, input: z.infer<typeof queueSchema>) {
           startedAt: new Date().toISOString(),
         });
     } else {
-      ensure(
-        c.mode === 'ACTIVE' && c.boundCompanyHash,
-        'Activate this verified connection before queuing outbound records.',
-      );
+      await permitOutbound(tx, c, input.operation, input.entityId);
       ensure(input.entityId, 'Select a source record.');
-      await enqueue(
+      const job = await enqueue(
         tx,
         c.id,
         input.operation,
@@ -99,6 +98,7 @@ export async function queue(actor: Actor, input: z.infer<typeof queueSchema>) {
         input,
         input.entityId,
       );
+      if (c.mode === 'PILOT' && job.status === 'PENDING') await buildRequest(tx, c, job, true);
     }
     await qbAudit(tx, actor.id, 'QUICKBOOKS_QUEUED', c.id, {
       operation: input.operation,

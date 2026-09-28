@@ -1,5 +1,7 @@
 # Phase 7 implementation report
 
+Historical Phase 7 report. Current Phase 7.5 controls and changed limits are documented in [QUICKBOOKS_PILOT.md](QUICKBOOKS_PILOT.md). Phase 7 was committed as `2bda56a`; this report's original local-state and test counts describe that earlier implementation run.
+
 This report describes the implemented, restricted software scope. **Live QuickBooks validation is pending.** Taxable PO export and several accounting edge cases remain blocked or require Controller handling as listed below; this is not an unconditional production-readiness claim.
 
 ## Local repository state reviewed

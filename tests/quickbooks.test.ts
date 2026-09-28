@@ -1,9 +1,51 @@
 import { describe, it, expect } from 'vitest';
 import { parseSoap, soapResponse } from '../src/lib/quickbooks/soap';
-import { parseXml, object, qbRequest, qbResponse, qbVersion } from '../src/lib/quickbooks/xml';
+import {
+  parseXml,
+  object,
+  qbRequest,
+  qbResponse,
+  qbVersion,
+  safeStatus,
+} from '../src/lib/quickbooks/xml';
+import { financialMode, pilotConfig } from '../src/lib/quickbooks/pilot';
+import type { QuickBooksConnection } from '@prisma/client';
 import { qwc } from '../src/lib/quickbooks/qwc';
 import { billData } from '../src/lib/quickbooks/bills';
 describe('QuickBooks protocol boundaries', () => {
+  it('keeps discovery and paused ledger mutations disabled and requires explicit pilot configuration', () => {
+    const base = {
+      active: true,
+      syncEnabled: true,
+      companyMismatch: false,
+      boundCompanyHash: 'bound',
+    } as QuickBooksConnection;
+    for (const mode of ['DISCOVERY', 'PAUSED'] as const)
+      expect(() => financialMode({ ...base, mode })).toThrow();
+    for (const mode of ['PILOT', 'ACTIVE'] as const)
+      expect(() => financialMode({ ...base, mode })).not.toThrow();
+    expect(() => financialMode({ ...base, mode: 'PILOT', companyMismatch: true })).toThrow();
+    expect(() => pilotConfig({ pilotConfig: {} })).toThrow(/pilot/);
+  });
+  it('translates permanent permission and tax/preference failures without calling them busy', () => {
+    expect(safeStatus('3260')).toMatch(/permission/i);
+    expect(safeStatus('3260')).not.toMatch(/busy/i);
+    expect(safeStatus('3176')).toMatch(/lock/i);
+    expect(safeStatus('3250')).toMatch(/edition/i);
+  });
+  it('retains unsupported group metadata and does not infer overhead from missing Job', () => {
+    const data = billData({
+      TxnID: 'unsupported',
+      EditSequence: '1',
+      TxnDate: '2026-09-28',
+      ItemGroupLineRet: { TxnLineID: 'g', Desc: 'Assembly', TotalAmount: '100' },
+      ExpenseLineRet: { TxnLineID: 'e', Amount: '50', Memo: 'Review allocation' },
+    });
+    expect(data.unsupported).toMatch(/Grouped/);
+    expect(data.unsupportedLines[0]).toEqual({ id: 'g', description: 'Assembly', amount: '100' });
+    expect(data.lines[0].project).toBe('');
+    expect(data.lines[0].amount).toBe('50');
+  });
   it('parses exact SOAP callback parameters and escapes responses', () => {
     const xml =
       '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><authenticate xmlns="http://developer.intuit.com"><strUserName>cedar</strUserName><strPassword>a&amp;b</strPassword></authenticate></soap:Body></soap:Envelope>';

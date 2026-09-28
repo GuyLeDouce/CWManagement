@@ -93,8 +93,21 @@ export function safeStatus(code: string) {
         '3140':
           'QuickBooks rejected a reference or account. Refresh Vendor, Job and Item mappings.',
         '3170': 'QuickBooks rejected a modification. Review the accounting record.',
+        '3180':
+          'QuickBooks could not save the transaction. Check required accounts, tax settings and payroll preferences in the test company; do not alter source amounts to force acceptance.',
+        '3250':
+          'This feature is not enabled or available in this QuickBooks edition. Confirm the Desktop version and supported workflow.',
+        '3175':
+          'QuickBooks is using a related transaction. Close its editing window, then review and retry the rejected request.',
+        '3176':
+          'QuickBooks could not acquire the record lock. Close single-user editing windows and retry the rejected request.',
         '3200': 'EditSequence changed in QuickBooks. Refresh and reconcile before modifying.',
-        '3260': 'QuickBooks is busy. Retry this rejected request after the record is released.',
+        '3260':
+          'QuickBooks denied permission. Review the integrated application and accounting user permissions; automatic retry is disabled.',
+        '3261':
+          'The integrated application lacks sensitive-data permission. Review company authorization without exposing payroll data.',
+        '3262':
+          'This request requires a QuickBooks payroll subscription. Confirm supported time/payroll preferences with the Controller.',
       } as Record<string, string>
     )[code] ||
     `QuickBooks rejected the request (status ${/^\d{1,8}$/.test(code) ? code : 'unknown'}). Review the record in QuickBooks.`

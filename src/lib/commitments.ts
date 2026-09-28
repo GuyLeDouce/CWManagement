@@ -140,6 +140,7 @@ export async function reconcileActual(actor: Actor, input: z.infer<typeof reconc
       actual && !actual.reversedAt && !actual.commitmentLineId,
       'Choose an unreversed, unreconciled actual cost.',
     );
+    ensure(!actual.externalSystem?.startsWith('QB:'), 'Use QuickBooks Bill review to allocate this imported actual with a reason, mode checks and source evidence.');
     const line = await consumeCommitment(tx, actor, {
       ...actual,
       commitmentLineId: input.commitmentLineId,

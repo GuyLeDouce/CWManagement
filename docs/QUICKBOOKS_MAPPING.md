@@ -1,5 +1,7 @@
 # QuickBooks mapping
 
+For live validation use the [Phase 7.5 pilot allowlist](QUICKBOOKS_PILOT.md) in addition to mappings. A mapping is not permission to export. Bill lines without a Job or Item/Account mapping are retained for reasoned allocation/ignore, then exact-version preview/application. Allocation changes are audited and cannot bypass mode, Project or commitment checks.
+
 Use Settings → QuickBooks after discovery and company verification. Select an existing local entity and an active discovered QuickBooks record, then confirm the link. Names are labels, not identity. Existing AccountingSyncMapping is extended with connection, EditSequence, FullName, subtype, source version, enabled state and metadata; legacy rows retain their uniqueness and are not silently attached to a new connection.
 
 | CW entity type | Source | QB candidate |

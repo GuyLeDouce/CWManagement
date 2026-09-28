@@ -110,3 +110,32 @@ test('Controller configures discovery, downloads QWC, verifies a fixture connect
       .boundCompanyHash,
   ).toBeTruthy();
 });
+
+test('Controller sees real preflight blockers, pauses the connector and cannot casually enable unrestricted sync', async ({
+  page,
+}) => {
+  await page.goto('/login');
+  await page.getByLabel('Email address').fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page).not.toHaveURL(/login/);
+  await page.goto('/financials/quickbooks');
+  await expect(page.getByRole('heading', { name: 'Accounting connection' })).toBeVisible();
+  const chooser = page.getByLabel('Connection', { exact: true });
+  if (await chooser.count()) await chooser.selectOption(connectionId);
+  await expect(page.getByRole('heading', { name: 'Live Validation', exact: true })).toBeVisible();
+  await expect(page.getByText('Live evidence still required:', { exact: false })).toBeVisible();
+  await page.getByLabel('QuickBooks mode', { exact: true }).selectOption('PAUSED');
+  await page.getByRole('button', { name: 'Save connection', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'PAUSED', exact: true })).toBeVisible();
+  await page.getByLabel('QuickBooks mode', { exact: true }).selectOption('ACTIVE');
+  await page.getByRole('button', { name: 'Save connection', exact: true }).click();
+  await expect(
+    page.getByRole('alert').filter({ hasText: /HTTPS APP_URL|Backup confirmed|Pilot mappings/ }),
+  ).toBeVisible();
+  expect(
+    (await db.quickBooksConnection.findUniqueOrThrow({ where: { id: connectionId } })).mode,
+  ).toBe('PAUSED');
+  await page.getByRole('button', { name: 'Inspect run' }).first().click();
+  await expect(page.getByText('CompanyQueryRq', { exact: false })).toBeVisible();
+});

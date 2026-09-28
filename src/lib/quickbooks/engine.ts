@@ -9,7 +9,7 @@ import { qbRequest, qbResponse, qbVersion, object, list, text, required } from '
 import { safeStatus } from './xml';
 import { lockConnection, issue, qbAudit, qbActor } from './state';
 import { enqueue } from './queue';
-import { recordTransactionMapping,candidateType } from './mapping';
+import { recordTransactionMapping, candidateType } from './mapping';
 import { applyBill, stageBill } from './bills';
 import { adoptVerifiedWrite } from './reconciliation';
 async function session(tx: Tx, ticket: string) {
@@ -61,7 +61,14 @@ export async function authenticate(username: string, password: string) {
   }
   const c = await db.quickBooksConnection.findUnique({ where: { username } });
   const valid = await verifyPassword(password, c?.passwordHash ?? null);
-  if (!valid || !c?.active || !c.syncEnabled) return ['', 'nvu'];
+  if (!valid || !c?.active || !c.syncEnabled) {
+    if (c)
+      await db.quickBooksConnection.update({
+        where: { id: c.id },
+        data: { lastAuthFailureAt: new Date() },
+      });
+    return ['', 'nvu'];
+  }
   return transaction(async (tx) => {
     await lockConnection(tx, c.id);
     const latest = await tx.quickBooksConnection.findUniqueOrThrow({ where: { id: c.id } });
@@ -89,6 +96,7 @@ export async function authenticate(username: string, password: string) {
       run = await tx.quickBooksSyncRun.create({
         data: {
           connectionId: c.id,
+          mode: latest.mode,
           queued: await tx.quickBooksSyncJob.count({
             where: { connectionId: c.id, status: 'PENDING' },
           }),
@@ -164,7 +172,11 @@ export async function sendRequest(input: z.infer<typeof callbacks.sendRequestXML
     ) {
       await tx.quickBooksConnection.update({
         where: { id: c.id },
-        data: { companyMismatch: true, companyHash:null,lastError: 'QuickBooks company file path changed.' },
+        data: {
+          companyMismatch: true,
+          companyHash: null,
+          lastError: 'QuickBooks company file path changed.',
+        },
       });
       await issue(
         tx,
@@ -186,7 +198,7 @@ export async function sendRequest(input: z.infer<typeof callbacks.sendRequestXML
         availableAt: { lte: new Date() },
         ...(!s.companyVerified
           ? { operation: 'Company' }
-          : c.mode !== 'ACTIVE' || c.companyMismatch
+          : !['ACTIVE', 'PILOT'].includes(c.mode) || c.companyMismatch
             ? { direction: 'IMPORT' }
             : {}),
       },
@@ -227,7 +239,7 @@ export async function sendRequest(input: z.infer<typeof callbacks.sendRequestXML
       if (!(error instanceof AppError)) throw error;
       await tx.quickBooksSyncJob.update({
         where: { id: job.id },
-        data: { status: 'BLOCKED', lastError: error.message },
+        data: { status: 'BLOCKED', lastError: error.message, sessionId: s.id },
       });
       await issue(tx, c.id, 'job:' + job.id, 'PREREQUISITE', error.message, job.id);
       return '';
@@ -277,8 +289,15 @@ export async function receiveResponse(input: z.infer<typeof callbacks.receiveRes
       await tx.quickBooksSyncJob.update({
         where: { id: r.jobId },
         data: {
-          status: response.code === '3200' ? 'RECONCILIATION_REQUIRED' : response.code==='3260'&&r.job.attempts<3?'PENDING':'FAILED',
-          ...(response.code==='3260'&&r.job.attempts<3?{availableAt:new Date(Date.now()+Math.pow(2,r.job.attempts)*30000)}:{}),
+          status:
+            response.code === '3200'
+              ? 'RECONCILIATION_REQUIRED'
+              : ['3175', '3176'].includes(response.code) && r.job.attempts < 3
+                ? 'PENDING'
+                : 'FAILED',
+          ...(['3175', '3176'].includes(response.code) && r.job.attempts < 3
+            ? { availableAt: new Date(Date.now() + Math.pow(2, r.job.attempts) * 30000) }
+            : {}),
           lastError: message,
         },
       });
@@ -290,7 +309,7 @@ export async function receiveResponse(input: z.infer<typeof callbacks.receiveRes
         message,
         r.jobId,
         response.code,
-        response.code === '3260',
+        ['3175', '3176'].includes(response.code),
       );
       await tx.quickBooksSyncRun.update({
         where: { id: s.runId },
@@ -302,7 +321,13 @@ export async function receiveResponse(input: z.infer<typeof callbacks.receiveRes
       });
       await tx.quickBooksRequest.update({
         where: { id: r.id },
-        data: { completedAt: new Date(), responseHash: hash, percent: -1 },
+        data: {
+          completedAt: new Date(),
+          responseHash: hash,
+          percent: -1,
+          statusCode: response.code,
+          result: message,
+        },
       });
       return -1;
     }
@@ -318,7 +343,8 @@ export async function receiveResponse(input: z.infer<typeof callbacks.receiveRes
           (s.companyFileName ?? '').toLowerCase(),
         ]),
       );
-      const mismatch = c.companyMismatch || (!!c.boundCompanyHash && c.boundCompanyHash !== companyHash);
+      const mismatch =
+        c.companyMismatch || (!!c.boundCompanyHash && c.boundCompanyHash !== companyHash);
       await tx.quickBooksConnection.update({
         where: { id: c.id },
         data: {
@@ -385,8 +411,46 @@ export async function receiveResponse(input: z.infer<typeof callbacks.receiveRes
           });
         }
       }
-      const mappings=await tx.accountingSyncMapping.findMany({where:{connectionId:c.id,quickBooksListId:{not:null}}});
-      for(const mapping of mappings){if(candidateType(mapping.entityType)!==type)continue;const candidate=await tx.quickBooksCandidate.findUnique({where:{connectionId_type_listId:{connectionId:c.id,type,listId:mapping.quickBooksListId!}}});if(candidate?.active)await tx.accountingSyncMapping.update({where:{id:mapping.id},data:{lastSeenInQuickBooksAt:candidate.lastSeenAt,quickBooksFullName:candidate.fullName,quickBooksEditSequence:candidate.editSequence}});else {await tx.accountingSyncMapping.update({where:{id:mapping.id},data:{status:'CONFLICT',lastError:'Mapped QuickBooks record is inactive or missing.'}});await issue(tx,c.id,'mapping:'+mapping.id,'MAPPING_UNAVAILABLE','A mapped QuickBooks '+type+' is inactive or missing. Review its mapping.');}}
+      const mappings = await tx.accountingSyncMapping.findMany({
+        where: { connectionId: c.id, quickBooksListId: { not: null } },
+      });
+      for (const mapping of mappings) {
+        if (candidateType(mapping.entityType) !== type) continue;
+        const candidate = await tx.quickBooksCandidate.findUnique({
+          where: {
+            connectionId_type_listId: {
+              connectionId: c.id,
+              type,
+              listId: mapping.quickBooksListId!,
+            },
+          },
+        });
+        if (candidate?.active)
+          await tx.accountingSyncMapping.update({
+            where: { id: mapping.id },
+            data: {
+              lastSeenInQuickBooksAt: candidate.lastSeenAt,
+              quickBooksFullName: candidate.fullName,
+              quickBooksEditSequence: candidate.editSequence,
+            },
+          });
+        else {
+          await tx.accountingSyncMapping.update({
+            where: { id: mapping.id },
+            data: {
+              status: 'CONFLICT',
+              lastError: 'Mapped QuickBooks record is inactive or missing.',
+            },
+          });
+          await issue(
+            tx,
+            c.id,
+            'mapping:' + mapping.id,
+            'MAPPING_UNAVAILABLE',
+            'A mapped QuickBooks ' + type + ' is inactive or missing. Review its mapping.',
+          );
+        }
+      }
     } else if (r.operation === 'BillQueryRq') {
       const actor = await qbActor(tx, r.job.actorId);
       for (const bill of list(node.BillRet)) {
@@ -399,7 +463,13 @@ export async function receiveResponse(input: z.infer<typeof callbacks.receiveRes
         )
           continue;
         const mirror = await stageBill(tx, c.id, bill);
-        await applyBill(tx, actor, mirror.id);
+        if (
+          c.mode === 'ACTIVE' &&
+          !c.companyMismatch &&
+          !mirror.suppressedAt &&
+          mirror.status !== 'REVIEW_REQUIRED'
+        )
+          await applyBill(tx, actor, mirror.id);
       }
       const remaining = Number(text(node['@_iteratorRemainingCount']) || 0);
       if (remaining > 0) {
@@ -554,7 +624,13 @@ export async function receiveResponse(input: z.infer<typeof callbacks.receiveRes
     const percent = pending ? 50 : 100;
     await tx.quickBooksRequest.update({
       where: { id: r.id },
-      data: { completedAt: new Date(), responseHash: hash, percent },
+      data: {
+        completedAt: new Date(),
+        responseHash: hash,
+        percent,
+        statusCode: response.code,
+        result: completed ? 'Completed.' : 'Review or continuation required.',
+      },
     });
     await tx.quickBooksSyncSession.update({
       where: { id: s.id },
@@ -602,7 +678,7 @@ export async function connectorCallback(
       data: { completedAt: new Date() },
     });
     const failed = await tx.quickBooksSyncJob.count({
-      where: { sessionId: s.id, status: { in: ['FAILED', 'RECONCILIATION_REQUIRED'] } },
+      where: { sessionId: s.id, status: { in: ['BLOCKED', 'FAILED', 'RECONCILIATION_REQUIRED'] } },
     });
     await tx.quickBooksSyncRun.update({
       where: { id: s.runId },

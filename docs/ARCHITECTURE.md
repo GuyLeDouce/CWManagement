@@ -1,5 +1,7 @@
 # CWManagement Architecture
 
+QuickBooks Phase 7.5 uses the existing service/queue/ledger boundaries with `pilot.ts` for mode/allowlist/activation enforcement and `diagnostics.ts` for authorized previews/pre-flight/run details. See [controlled pilot](QUICKBOOKS_PILOT.md). No Phase 8 architecture has been introduced.
+
 ## Product boundary
 
 CWManagement is the Cedar Winds operational system. QuickBooks Desktop remains the accounting ledger. The application owns identity, people, projects, assignments, time capture/approval, operational dashboards, estimating/proposals, purchasing, change orders, job-cost context, and audit history.

@@ -1,5 +1,7 @@
 # QuickBooks troubleshooting
 
+Start with [Live Validation / pre-flight](QUICKBOOKS_PILOT.md). PAUSED continues authentication/queries but stops financial mutations. HELD Bills cannot reimport; restore to review after accounting-side verification. REVIEW_REQUIRED means a manual allocation/restore needs an exact preview and reasoned application. Inspect each run for safe source/request/status details. The deployment migration resets existing ACTIVE connections to DISCOVERY deliberately.
+
 Open Financials → QuickBooks. Copy safe diagnostics (health, callback/contact, mode, version and blocked count). Never copy passwords, hashes, database URLs, raw authentication SOAP or unredacted accounting payloads into tickets.
 
 | State | Action |
@@ -14,7 +16,7 @@ Open Financials → QuickBooks. Copy safe diagnostics (health, callback/contact,
 | Bill UNRECONCILED | Project actual exists but commitment match needs review in Project ActualCost workspace |
 | TIME CONFLICT | Correct/review the entry in QuickBooks with Controller; CW does not automatically modify payroll-sensitive time |
 
-Status 3100: existing name—discover/map. 3120/3140: missing/invalid reference—refresh lists. 3200: stale EditSequence—refresh PO, compare, explicitly authorize current CW revision. 3260: busy record—bounded delayed retries, then operator review. Raw status messages are not ordinary UI/log output.
+Status 3100: existing name—discover/map. 3120/3140: missing/invalid reference—refresh lists. 3200: stale EditSequence—refresh PO, compare, explicitly authorize current CW revision. 3175/3176: record lock—bounded delayed retries, then operator review. 3260: insufficient permissions—review authorization, no automatic retry. 3250: unsupported/disabled feature. 3261/3262: sensitive-data permission/payroll subscription requirements; do not enable broad payroll access without Controller review. Raw status messages are not ordinary UI/log output.
 
 Close the previous connector session before adopting an uncertain PO/time write. Supply its exact TxnID using “Verify uncertain transaction”; the next connector run queries it and checks original references/values before mapping it. A mismatch stays unresolved. “Record resolution” records an audit note only; it does not bypass job safety, change accounting or approve a resend. For rejected PO Mod with stale sequence, use “Refresh QuickBooks PO for review”, inspect both versions and authorize deliberately.
 

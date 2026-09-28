@@ -1,5 +1,7 @@
 # CWManagement
 
+QuickBooks live setup now uses the [Phase 7.5 controlled pilot](docs/QUICKBOOKS_PILOT.md). Apply `202609280001_quickbooks_pilot` before deployment: it deliberately returns existing ACTIVE connections to DISCOVERY. No live QuickBooks validation or unrestricted production activation has been performed. See the [implementation report](docs/PHASE75_IMPLEMENTATION.md) and [operator checklist](docs/QUICKBOOKS_LIVE_VALIDATION.md).
+
 A Cedar Winds-specific construction and business management platform. Phases 1–6 provide projects, contacts/companies, schedule/files, estimates/proposals, budgets, purchase/work orders, change orders, reconciled actual costs, selections, separate Client and Trade Portals, site instructions, deficiencies, and the proven mobile Time module inherited from CWTimeClock.
 
 **Stack:** Next.js 16, React, TypeScript, Tailwind/CSS theme variables, PostgreSQL, Prisma, Zod. Deploy with the usual **GitHub → Railway** workflow. The PWA is the same website saved to a phone; there is no App Store build or separate mobile backend.

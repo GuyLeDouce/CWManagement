@@ -1,5 +1,7 @@
 # Job Costing
 
+QuickBooks pilot Bill review uses this same ledger. Source edits reverse/reapply within one transaction; manual holds restore commitment consumption and prevent automatic reimport. Explicit unlink preserves actual cost while restoring remaining commitment. DISCOVERY/PAUSED never apply Bills; PILOT requires an exact preview hash and allowlisted identities. Missing Job lines remain reconciliation items, not guessed project costs. See [pilot policies](QUICKBOOKS_PILOT.md).
+
 The report groups actual system records by Cost Code and Cost Type and shows Original Budget, Current Budget, remaining Committed, Actual, Forecast, and Variance. Original and current budgets are separate immutable `BudgetVersion` snapshots created from accepted estimate cost—not client price.
 
 Remaining committed equals committed less consumed. Linked actual creation/reconciliation increments consumption in the same serializable transaction; reversal restores it. Manual actuals are explicitly sourced `MANUAL`, capability-restricted, and audited. Cancelled commitments contribute zero remaining exposure while their actual costs remain.

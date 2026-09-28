@@ -800,7 +800,9 @@ model AccountingSyncMapping {
 
 enum QuickBooksMode {
   DISCOVERY
+  PILOT
   ACTIVE
+  PAUSED
 }
 
 enum QuickBooksJobStatus {
@@ -814,34 +816,39 @@ enum QuickBooksJobStatus {
 }
 
 model QuickBooksConnection {
-  id                   String                  @id @default(cuid())
+  id                   String                       @id @default(cuid())
   name                 String
-  username             String                  @unique
+  username             String                       @unique
   passwordHash         String
-  ownerGuid            String                  @unique
-  fileGuid             String                  @unique
-  active               Boolean                 @default(true)
-  syncEnabled          Boolean                 @default(true)
-  mode                 QuickBooksMode          @default(DISCOVERY)
-  intervalMinutes      Int                     @default(30)
+  ownerGuid            String                       @unique
+  fileGuid             String                       @unique
+  active               Boolean                      @default(true)
+  syncEnabled          Boolean                      @default(true)
+  mode                 QuickBooksMode               @default(DISCOVERY)
+  pilotConfig          Json?
+  backupConfirmedAt    DateTime?                    @db.Timestamptz(3)
+  liveValidatedAt      DateTime?                    @db.Timestamptz(3)
+  lastAuthFailureAt    DateTime?                    @db.Timestamptz(3)
+  validationResults    QuickBooksValidationResult[]
+  intervalMinutes      Int                          @default(30)
   companyFileName      String?
   companyName          String?
   companyHash          String?
-  boundCompanyHash     String?                 @unique
-  companyMismatch      Boolean                 @default(false)
+  boundCompanyHash     String?                      @unique
+  companyMismatch      Boolean                      @default(false)
   country              String?
   qbXmlVersion         String?
   lastCallback         String?
-  lastConnectedAt      DateTime?               @db.Timestamptz(3)
-  lastAuthenticatedAt  DateTime?               @db.Timestamptz(3)
-  lastSuccessfulSyncAt DateTime?               @db.Timestamptz(3)
-  lastErrorAt          DateTime?               @db.Timestamptz(3)
+  lastConnectedAt      DateTime?                    @db.Timestamptz(3)
+  lastAuthenticatedAt  DateTime?                    @db.Timestamptz(3)
+  lastSuccessfulSyncAt DateTime?                    @db.Timestamptz(3)
+  lastErrorAt          DateTime?                    @db.Timestamptz(3)
   lastError            String?
-  importStartDate      DateTime?               @db.Date
-  billCursor           DateTime?               @db.Timestamptz(3)
+  importStartDate      DateTime?                    @db.Date
+  billCursor           DateTime?                    @db.Timestamptz(3)
   actorId              String
-  createdAt            DateTime                @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime                @updatedAt @db.Timestamptz(3)
+  createdAt            DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                     @updatedAt @db.Timestamptz(3)
   mappings             AccountingSyncMapping[]
   candidates           QuickBooksCandidate[]
   sessions             QuickBooksSyncSession[]
@@ -873,6 +880,7 @@ model QuickBooksSyncRun {
   startedAt    DateTime               @default(now()) @db.Timestamptz(3)
   completedAt  DateTime?              @db.Timestamptz(3)
   status       String                 @default("RUNNING")
+  mode         QuickBooksMode         @default(DISCOVERY)
   requestsSent Int                    @default(0)
   succeeded    Int                    @default(0)
   failed       Int                    @default(0)
@@ -943,6 +951,8 @@ model QuickBooksRequest {
   isWrite      Boolean
   responseHash String?
   percent      Int?
+  statusCode   String?
+  result       String?
   createdAt    DateTime              @default(now()) @db.Timestamptz(3)
   completedAt  DateTime?             @db.Timestamptz(3)
 
@@ -970,21 +980,42 @@ model QuickBooksSyncIssue {
 
 // Reconciliation staging only. Reporting always reads normalized ActualCost.
 model QuickBooksBillMirror {
-  id           String               @id @default(cuid())
-  connectionId String
-  connection   QuickBooksConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
-  txnId        String
-  editSequence String
-  contentHash  String
-  payload      Json
-  appliedHash  String?
-  status       String               @default("REVIEW")
-  lastError    String?
-  lineLinks    Json?
-  observedAt   DateTime             @default(now()) @db.Timestamptz(3)
-  appliedAt    DateTime?            @db.Timestamptz(3)
+  id            String               @id @default(cuid())
+  connectionId  String
+  connection    QuickBooksConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  txnId         String
+  editSequence  String
+  contentHash   String
+  payload       Json
+  appliedHash   String?
+  status        String               @default("REVIEW")
+  lastError     String?
+  lineLinks     Json?
+  lineDecisions Json?
+  suppressedAt  DateTime?            @db.Timestamptz(3)
+  observedAt    DateTime             @default(now()) @db.Timestamptz(3)
+  appliedAt     DateTime?            @db.Timestamptz(3)
 
   @@unique([connectionId, txnId])
+}
+
+// Operator evidence, never generated by fixture tests or inferred from a successful HTTP response.
+model QuickBooksValidationResult {
+  id               String               @id @default(cuid())
+  connectionId     String
+  connection       QuickBooksConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  step             String
+  passed           Boolean
+  note             String
+  recordIds        String
+  desktopVersion   String
+  connectorVersion String
+  companyHash      String
+  scopeHash        String
+  actorId          String
+  createdAt        DateTime             @default(now()) @db.Timestamptz(3)
+
+  @@index([connectionId, step, createdAt])
 }
 
 model ProjectTask {

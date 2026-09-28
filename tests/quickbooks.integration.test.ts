@@ -19,6 +19,14 @@ import { reconcile } from '../src/lib/quickbooks/admin';
 import { jobCost } from '../src/lib/financial';
 import listFixtures from './fixtures/quickbooks/lists.json';
 import { POST as soapPost } from '../src/app/api/quickbooks/web-connector/route';
+import {
+  savePilot,
+  pilotSaveSchema,
+  recordEvidence,
+  evidenceSchema,
+  liveSteps,
+} from '../src/lib/quickbooks/pilot';
+import { previewRequest, pilotDashboard, runDetail } from '../src/lib/quickbooks/diagnostics';
 beforeAll(() => {
   if (!process.env.DATABASE_URL || !new URL(process.env.DATABASE_URL).pathname.endsWith('_test'))
     throw new Error('Isolated _test database required');
@@ -93,10 +101,12 @@ async function bound() {
       name: 'Test',
       username: 'qb-' + f.key,
       confirmCompany: true,
-      mode: 'ACTIVE',
+      mode: 'DISCOVERY',
       importStartDate: '2026-01-01',
     }),
   );
+  // Seed ACTIVE only for pre-existing protocol/ledger fixtures. Phase 7.5 tests exercise real activation guards separately.
+  await db.quickBooksConnection.update({ where: { id: f.c.id }, data: { mode: 'ACTIVE' } });
   return { ...f, ticket };
 }
 async function mappedProject(f: Awaited<ReturnType<typeof bound>>) {
@@ -124,6 +134,755 @@ async function mappedProject(f: Awaited<ReturnType<typeof bound>>) {
   }
   return { project, code };
 }
+async function pilotFixture() {
+  const f = await bound(),
+    { project, code } = await mappedProject(f);
+  const vendor = await db.contact.create({
+    data: { firstName: 'Pilot', lastName: f.key, types: ['VENDOR'] },
+  });
+  for (const [type, entityId, qtype, listId] of [
+    ['VENDOR_CONTACT', vendor.id, 'Vendor', 'vendor'],
+    ['EMPLOYEE', f.actor.id, 'Employee', 'employee'],
+  ]) {
+    const candidate = await db.quickBooksCandidate.create({
+      data: { connectionId: f.c.id, type: qtype, listId, fullName: listId },
+    });
+    await saveMapping(
+      f.actor,
+      mappingSchema.parse({ connectionId: f.c.id, type, entityId, candidateId: candidate.id }),
+    );
+  }
+  const po = await savePurchasing(
+    f.actor,
+    purchasingSchema.parse({
+      projectId: project.id,
+      type: 'PURCHASE_ORDER',
+      vendorContactId: vendor.id,
+      title: 'Pilot PO',
+      lines: [
+        {
+          costCodeId: code.id,
+          costType: code.type,
+          description: 'Pilot scope',
+          quantity: '1',
+          unit: 'LS',
+          unitCost: '25000',
+          taxable: false,
+          sortOrder: 0,
+        },
+      ],
+    }),
+  );
+  for (const action of ['review', 'approve', 'issue']) {
+    const r = await db.purchasingRevision.findUniqueOrThrow({ where: { id: po.id } });
+    await purchasingAction(
+      f.actor,
+      transitionSchema.parse({ id: r.id, expectedVersion: r.version, action }),
+    );
+  }
+  const start = new Date('2026-09-24T12:00:00Z'),
+    end = new Date('2026-09-24T13:00:00Z');
+  const day = await db.workDay.create({
+    data: {
+      userId: f.actor.id,
+      date: '2026-09-24',
+      timezone: 'America/Toronto',
+      originalStart: start,
+      paidStart: start,
+      endedAt: end,
+    },
+  });
+  const task = await db.task.create({ data: { name: 'Pilot task ' + f.key } });
+  const time = await db.timeSegment.create({
+    data: {
+      taskId: task.id,
+      userId: f.actor.id,
+      workDayId: day.id,
+      jobsiteId: project.id,
+      costCodeId: code.id,
+      type: 'SITE',
+      originalStart: start,
+      effectiveStart: start,
+      end,
+      status: 'PM_APPROVED',
+      approvals: { create: { approverId: f.actor.id, segmentVersion: 1 } },
+    },
+  });
+  const config = {
+    id: f.c.id,
+    name: 'Pilot',
+    username: 'qb-' + f.key,
+    mode: 'DISCOVERY',
+    importStartDate: '2026-01-01',
+  };
+  await configure(f.actor, configureSchema.parse(config));
+  const pilot = {
+    projectId: project.id,
+    vendorContactId: vendor.id,
+    employeeId: f.actor.id,
+    costCodeIds: [code.id],
+    purchasingRevisionId: po.id,
+    timeSegmentIds: [time.id],
+  };
+  await savePilot(
+    f.actor,
+    pilotSaveSchema.parse({
+      connectionId: f.c.id,
+      pilot,
+      backupConfirmed: true,
+      reason: 'Isolated automated pilot safety fixture',
+    }),
+  );
+  await configure(f.actor, configureSchema.parse({ ...config, mode: 'PILOT' }));
+  const commitment = await db.commitment.findUniqueOrThrow({
+    where: { purchasingDocumentId: po.documentId },
+    include: { lines: true },
+  });
+  return { ...f, project, code, vendor, po, time, pilot, config, commitment };
+}
+describe('Phase 7.5 controlled pilot', () => {
+  it('repairs blocked mappings, records permanent permission errors without retry and safely reports run results', async () => {
+    const f = await pilotFixture();
+    const m = await db.accountingSyncMapping.findUniqueOrThrow({
+      where: {
+        connectionId_entityType_entityId: {
+          connectionId: f.c.id,
+          entityType: 'COST_CODE',
+          entityId: f.code.id,
+        },
+      },
+    });
+    await queue(
+      f.actor,
+      queueSchema.parse({ connectionId: f.c.id, operation: 'TIME', entityId: f.time.id }),
+    );
+    await db.accountingSyncMapping.update({ where: { id: m.id }, data: { enabled: false } });
+    expect(await send(f.ticket)).toBe('');
+    const job = await db.quickBooksSyncJob.findFirstOrThrow({
+      where: { connectionId: f.c.id, operation: 'TIME' },
+    });
+    expect(job.status).toBe('BLOCKED');
+    await db.accountingSyncMapping.update({ where: { id: m.id }, data: { enabled: true } });
+    await reconcile(f.actor, {
+      action: 'retry',
+      id: job.id,
+      note: 'Repaired explicit Item mapping',
+    });
+    await db.quickBooksSyncJob.update({
+      where: { id: job.id },
+      data: { availableAt: new Date(0) },
+    });
+    const xml = await send(f.ticket);
+    expect(req(xml).op).toBe('TimeTrackingAddRq');
+    await receive(f.ticket, xml, {}, '3260');
+    expect((await db.quickBooksSyncJob.findUniqueOrThrow({ where: { id: job.id } })).status).toBe(
+      'FAILED',
+    );
+    const run = await db.quickBooksSyncRun.findFirstOrThrow({ where: { connectionId: f.c.id } });
+    const detail = await runDetail(f.actor, run.id);
+    expect(detail.requests.find((r) => r.operation === 'TimeTrackingAddRq')?.statusCode).toBe(
+      '3260',
+    );
+    expect(detail.requests.find((r) => r.operation === 'TimeTrackingAddRq')?.result).toMatch(
+      /permission/i,
+    );
+  });
+  it('requires reviewed unlinking and handles returned zero-value Bills without deleting history', async () => {
+    const f = await pilotFixture();
+    const stage = (amount: string, seq: string) =>
+      transaction((tx) =>
+        stageBill(tx, f.c.id, {
+          TxnID: 'void-test',
+          EditSequence: seq,
+          TxnDate: '2026-09-24',
+          VendorRef: { ListID: 'vendor' },
+          ItemLineRet: {
+            TxnLineID: 'l',
+            Amount: amount,
+            CustomerRef: { ListID: 'job' },
+            ItemRef: { ListID: 'item' },
+          },
+        }),
+      );
+    const b = await stage('20', '1');
+    const apply = async () => {
+      const preview = await transaction((tx) => applyBill(tx, f.actor, b.id, { preview: true }));
+      expect(preview?.ready).toBe(true);
+      await reconcile(f.actor, {
+        action: 'bill',
+        id: b.id,
+        note: 'Reviewed source and allocation',
+        reviewedHash: preview!.reviewedHash,
+      });
+    };
+    await reconcile(f.actor, {
+      action: 'bill-allocate',
+      id: b.id,
+      note: 'Linked reviewed commitment',
+      lineLinks: { l: f.commitment.lines[0].id },
+    });
+    await apply();
+    await reconcile(f.actor, {
+      action: 'bill-allocate',
+      id: b.id,
+      note: 'Incorrect commitment explicitly unlinked',
+      lineLinks: { l: '' },
+    });
+    await apply();
+    expect(
+      (
+        await db.commitmentLine.findUniqueOrThrow({ where: { id: f.commitment.lines[0].id } })
+      ).consumedAmount.toString(),
+    ).toBe('0');
+    await stage('0', '2');
+    await apply();
+    expect(
+      (
+        await db.actualCost.aggregate({
+          where: { projectId: f.project.id, reversedAt: null },
+          _sum: { amount: true },
+        })
+      )._sum.amount?.toString(),
+    ).toBe('0');
+    expect(
+      await db.actualCost.count({ where: { projectId: f.project.id, reversedAt: { not: null } } }),
+    ).toBe(2);
+  });
+  it('promotes only after actual protocol evidence and explicit live-result attestations; failed results pause ACTIVE', async () => {
+    const f = await pilotFixture();
+    await queue(f.actor, queueSchema.parse({ connectionId: f.c.id, operation: 'DISCOVERY' }));
+    const discovery: Record<string, XmlNode> = {
+      CompanyQueryRq: {
+        CompanyRet: { CompanyName: 'Cedar Winds Test ' + f.key, LegalCompanyName: 'CW Test' },
+      },
+      CustomerQueryRq: { CustomerRet: { ListID: 'job', FullName: 'Pilot Job' } },
+      VendorQueryRq: { VendorRet: { ListID: 'vendor', Name: 'Vendor' } },
+      EmployeeQueryRq: { EmployeeRet: { ListID: 'employee', Name: 'Employee' } },
+      ItemQueryRq: { ItemServiceRet: { ListID: 'item', Name: 'Item' } },
+      AccountQueryRq: {},
+    };
+    for (let i = 0; i < 6; i++) {
+      const xml = await send(f.ticket);
+      await receive(f.ticket, xml, discovery[req(xml).op]);
+    }
+    await queue(
+      f.actor,
+      queueSchema.parse({ connectionId: f.c.id, operation: 'PURCHASE_ORDER', entityId: f.po.id }),
+    );
+    await receive(f.ticket, await send(f.ticket), {
+      PurchaseOrderRet: {
+        TxnID: 'pilot-po',
+        EditSequence: '1',
+        PurchaseOrderLineRet: { TxnLineID: 'p', Amount: '25000' },
+      },
+    });
+    await queue(
+      f.actor,
+      queueSchema.parse({ connectionId: f.c.id, operation: 'TIME', entityId: f.time.id }),
+    );
+    await receive(f.ticket, await send(f.ticket), {
+      TimeTrackingRet: { TxnID: 'pilot-time', EditSequence: '1' },
+    });
+    for (const amount of ['10', '12']) {
+      const b = await transaction((tx) =>
+        stageBill(tx, f.c.id, {
+          TxnID: 'exit-bill',
+          EditSequence: amount,
+          TxnDate: '2026-09-24',
+          VendorRef: { ListID: 'vendor' },
+          LinkedTxn: { TxnID: 'pilot-po', TxnType: 'PurchaseOrder' },
+          ItemLineRet: {
+            TxnLineID: 'l',
+            Amount: amount,
+            CustomerRef: { ListID: 'job' },
+            ItemRef: { ListID: 'item' },
+          },
+        }),
+      );
+      const preview = await transaction((tx) => applyBill(tx, f.actor, b.id, { preview: true }));
+      await reconcile(f.actor, {
+        action: 'bill',
+        id: b.id,
+        note: 'Fixture test of reviewed import',
+        reviewedHash: preview!.reviewedHash,
+      });
+    }
+    for (const step of liveSteps)
+      await recordEvidence(
+        f.actor,
+        evidenceSchema.parse({
+          connectionId: f.c.id,
+          step,
+          passed: true,
+          note: 'Automated test of gate; NOT actual live validation',
+          recordIds: f.po.id,
+          desktopVersion: 'FIXTURE',
+          connectorVersion: 'FIXTURE',
+        }),
+      );
+    await configure(
+      f.actor,
+      configureSchema.parse({
+        ...f.config,
+        mode: 'ACTIVE',
+        confirmActivation: true,
+        activationReason: 'Automated test of complete activation gate',
+      }),
+    );
+    expect(
+      (await db.quickBooksConnection.findUniqueOrThrow({ where: { id: f.c.id } })).liveValidatedAt,
+    ).toBeTruthy();
+    await recordEvidence(
+      f.actor,
+      evidenceSchema.parse({
+        connectionId: f.c.id,
+        step: 'FAILURE_RECOVERY',
+        passed: false,
+        note: 'Automated test: a later failed result pauses active sync',
+        recordIds: f.po.id,
+        desktopVersion: 'FIXTURE',
+        connectorVersion: 'FIXTURE',
+      }),
+    );
+    expect((await db.quickBooksConnection.findUniqueOrThrow({ where: { id: f.c.id } })).mode).toBe(
+      'PAUSED',
+    );
+  });
+  it('requires a backup, valid pilot mappings, verified company and deliberate ACTIVE sign-off', async () => {
+    const f = await bound();
+    await configure(
+      f.actor,
+      configureSchema.parse({
+        id: f.c.id,
+        name: 'Test',
+        username: 'qb-' + f.key,
+        mode: 'DISCOVERY',
+      }),
+    );
+    await expect(
+      configure(
+        f.actor,
+        configureSchema.parse({ id: f.c.id, name: 'Test', username: 'qb-' + f.key, mode: 'PILOT' }),
+      ),
+    ).rejects.toThrow(/Backup|pilot/);
+    const p = await pilotFixture();
+    await expect(
+      configure(p.actor, configureSchema.parse({ ...p.config, mode: 'ACTIVE' })),
+    ).rejects.toThrow(/confirmation/);
+    await expect(
+      configure(
+        p.actor,
+        configureSchema.parse({
+          ...p.config,
+          mode: 'ACTIVE',
+          confirmActivation: true,
+          activationReason: 'Validated scope activation request',
+        }),
+      ),
+    ).rejects.toThrow(/exit checks/);
+    const controller = await db.user.create({
+      data: {
+        firstName: 'Controller',
+        lastName: p.key,
+        email: p.key + '-c@example.test',
+        roles: ['CONTROLLER'],
+      },
+    });
+    await expect(
+      configure(
+        controller,
+        configureSchema.parse({
+          ...p.config,
+          mode: 'ACTIVE',
+          confirmActivation: true,
+          activationReason: 'Trying an Owner-only override',
+          ownerOverride: true,
+        }),
+      ),
+    ).rejects.toThrow(/Owner/);
+    await configure(
+      p.actor,
+      configureSchema.parse({
+        ...p.config,
+        mode: 'ACTIVE',
+        confirmActivation: true,
+        activationReason: 'Automated Owner override test only',
+        ownerOverride: true,
+      }),
+    );
+    expect(
+      (await db.quickBooksConnection.findUniqueOrThrow({ where: { id: p.c.id } })).liveValidatedAt,
+    ).toBeNull();
+  });
+  it('enforces allowlists on queue and execution; previews do not insert jobs or alter time', async () => {
+    const f = await pilotFixture();
+    const before = await db.quickBooksSyncJob.count({ where: { connectionId: f.c.id } });
+    const preview = await previewRequest(f.actor, {
+      connectionId: f.c.id,
+      operation: 'PURCHASE_ORDER',
+      entityId: f.po.id,
+    });
+    expect(preview.ready).toBe(true);
+    expect(preview.xml).toContain('25000');
+    expect(
+      (
+        await previewRequest(f.actor, {
+          connectionId: f.c.id,
+          operation: 'TIME',
+          entityId: f.time.id,
+        })
+      ).xml,
+    ).toContain('PT1H0M');
+    expect(await db.quickBooksSyncJob.count({ where: { connectionId: f.c.id } })).toBe(before);
+    await expect(
+      queue(
+        f.actor,
+        queueSchema.parse({ connectionId: f.c.id, operation: 'TIME', entityId: 'unrelated' }),
+      ),
+    ).rejects.toThrow(/allowlist/);
+    await expect(
+      queue(
+        f.actor,
+        queueSchema.parse({
+          connectionId: f.c.id,
+          operation: 'CREATE_PROJECT',
+          entityId: f.project.id,
+          name: 'Unrelated',
+        }),
+      ),
+    ).rejects.toThrow(/list creation/);
+    await db.quickBooksSyncJob.create({
+      data: {
+        connectionId: f.c.id,
+        operation: 'TIME',
+        entityType: 'TIME',
+        entityId: 'unrelated',
+        requestKey: f.key + 'rogue',
+        actorId: f.actor.id,
+        direction: 'EXPORT',
+      },
+    });
+    expect(await send(f.ticket)).toBe('');
+    expect(
+      (await db.quickBooksSyncJob.findUniqueOrThrow({ where: { requestKey: f.key + 'rogue' } }))
+        .status,
+    ).toBe('BLOCKED');
+  });
+  it('blocks tax before queueing and records exact approved-time transaction once after retries', async () => {
+    const f = await pilotFixture();
+    // Separate eligible issued source with taxes must be rejected even when allowlisted.
+    const taxed = await savePurchasing(
+      f.actor,
+      purchasingSchema.parse({
+        projectId: f.project.id,
+        type: 'PURCHASE_ORDER',
+        vendorContactId: f.vendor.id,
+        title: 'Tax test',
+        lines: [
+          {
+            costCodeId: f.code.id,
+            costType: f.code.type,
+            description: 'Taxed',
+            quantity: '1',
+            unit: 'LS',
+            unitCost: '100',
+            taxable: true,
+            sortOrder: 0,
+          },
+        ],
+      }),
+    );
+    for (const action of ['review', 'approve', 'issue']) {
+      const r = await db.purchasingRevision.findUniqueOrThrow({ where: { id: taxed.id } });
+      await purchasingAction(
+        f.actor,
+        transitionSchema.parse({ id: r.id, expectedVersion: r.version, action }),
+      );
+    }
+    await db.quickBooksConnection.update({
+      where: { id: f.c.id },
+      data: { pilotConfig: { ...f.pilot, purchasingRevisionId: taxed.id } },
+    });
+    const preview = await previewRequest(f.actor, {
+      connectionId: f.c.id,
+      operation: 'PURCHASE_ORDER',
+      entityId: taxed.id,
+    });
+    expect(preview.ready).toBe(false);
+    expect(preview.blocker).toContain('It was not sent');
+    await expect(
+      queue(
+        f.actor,
+        queueSchema.parse({
+          connectionId: f.c.id,
+          operation: 'PURCHASE_ORDER',
+          entityId: taxed.id,
+        }),
+      ),
+    ).rejects.toThrow(/tax behavior/);
+    await Promise.all(
+      [1, 2].map(() =>
+        queue(
+          f.actor,
+          queueSchema.parse({ connectionId: f.c.id, operation: 'TIME', entityId: f.time.id }),
+        ),
+      ),
+    );
+    const xml = await send(f.ticket);
+    expect(req(xml).op).toBe('TimeTrackingAddRq');
+    await Promise.all(
+      [1, 2].map(() =>
+        receive(f.ticket, xml, { TimeTrackingRet: { TxnID: 'time-pilot', EditSequence: '1' } }),
+      ),
+    );
+    expect(
+      await db.accountingSyncMapping.count({ where: { connectionId: f.c.id, entityType: 'TIME' } }),
+    ).toBe(1);
+    expect(
+      (
+        await previewRequest(f.actor, {
+          connectionId: f.c.id,
+          operation: 'TIME',
+          entityId: f.time.id,
+        })
+      ).ready,
+    ).toBe(false);
+  });
+  it('stages Bill queries without applying costs in DISCOVERY, PILOT and PAUSED; paused connector still authenticates', async () => {
+    const f = await pilotFixture();
+    for (const mode of ['DISCOVERY', 'PILOT', 'PAUSED'] as const) {
+      await db.quickBooksConnection.update({ where: { id: f.c.id }, data: { mode } });
+      await queue(f.actor, queueSchema.parse({ connectionId: f.c.id, operation: 'BILLS' }));
+      const xml = await send(f.ticket);
+      await receive(f.ticket, xml, {
+        BillRet: {
+          TxnID: 'bill-' + mode,
+          EditSequence: '1',
+          TxnDate: '2026-09-24',
+          VendorRef: { ListID: 'vendor' },
+          ItemLineRet: {
+            TxnLineID: 'l',
+            Amount: '10',
+            CustomerRef: { ListID: 'job' },
+            ItemRef: { ListID: 'item' },
+          },
+        },
+      });
+      expect(await db.actualCost.count({ where: { externalSystem: 'QB:' + f.c.id } })).toBe(0);
+      const b = await db.quickBooksBillMirror.findUniqueOrThrow({
+        where: { connectionId_txnId: { connectionId: f.c.id, txnId: 'bill-' + mode } },
+      });
+      await expect(transaction((tx) => applyBill(tx, f.actor, b.id))).rejects.toThrow(
+        mode === 'PILOT' ? /Preview/ : /Financial processing/,
+      );
+    }
+    await connectorCallback('closeConnection', { ticket: f.ticket });
+    const [ticket] = await authenticate('qb-' + f.key, f.c.password!);
+    expect(ticket.length).toBeGreaterThan(20);
+    await expect(
+      queue(
+        f.actor,
+        queueSchema.parse({ connectionId: f.c.id, operation: 'TIME', entityId: f.time.id }),
+      ),
+    ).rejects.toThrow(/Financial processing/);
+  });
+  it('reviews exact Bill versions, reconciles edits atomically, restores commitments on hold and never reimports held Bills', async () => {
+    const f = await pilotFixture();
+    const stage = (amount: string, seq: string) =>
+      transaction((tx) =>
+        stageBill(tx, f.c.id, {
+          TxnID: 'pilot-bill',
+          EditSequence: seq,
+          TxnDate: '2026-09-24',
+          VendorRef: { ListID: 'vendor' },
+          ItemLineRet: {
+            TxnLineID: 'l',
+            Amount: amount,
+            CustomerRef: { ListID: 'job' },
+            ItemRef: { ListID: 'item' },
+          },
+        }),
+      );
+    const b = await stage('10000', '1');
+    await reconcile(f.actor, {
+      action: 'bill-allocate',
+      id: b.id,
+      note: 'Bill references pilot commitment',
+      lineLinks: { l: f.commitment.lines[0].id },
+    });
+    const preview = await transaction((tx) => applyBill(tx, f.actor, b.id, { preview: true }));
+    expect(preview?.ready).toBe(true);
+    expect(preview?.planned[0].amount).toBe('10000');
+    expect(await db.actualCost.count({ where: { projectId: f.project.id } })).toBe(0);
+    await reconcile(f.actor, {
+      action: 'bill',
+      id: b.id,
+      note: 'Compared test Bill and confirmed amounts',
+      reviewedHash: preview!.reviewedHash,
+    });
+    await reconcile(f.actor, {
+      action: 'bill',
+      id: b.id,
+      note: 'Retry exact Bill approval safely',
+      reviewedHash: preview!.reviewedHash,
+    });
+    await stage('12000', '2');
+    await expect(
+      reconcile(f.actor, {
+        action: 'bill',
+        id: b.id,
+        note: 'Stale approval must fail',
+        reviewedHash: preview!.reviewedHash,
+      }),
+    ).rejects.toThrow(/exact Bill/);
+    const next = await transaction((tx) => applyBill(tx, f.actor, b.id, { preview: true }));
+    await reconcile(f.actor, {
+      action: 'bill',
+      id: b.id,
+      note: 'Reviewed modified QuickBooks Bill',
+      reviewedHash: next!.reviewedHash,
+    });
+    expect(
+      (
+        await db.commitmentLine.findUniqueOrThrow({ where: { id: f.commitment.lines[0].id } })
+      ).consumedAmount.toString(),
+    ).toBe('12000');
+    const report = await jobCost(f.actor, f.project.id);
+    expect(report).toBeTruthy();
+    expect(
+      await db.auditLog.count({ where: { entityId: b.id, action: 'QUICKBOOKS_BILL_MODIFIED' } }),
+    ).toBe(1);
+    await reconcile(f.actor, {
+      action: 'bill-hold',
+      id: b.id,
+      note: 'Controller verified deletion in QuickBooks test company',
+    });
+    expect(
+      (
+        await db.commitmentLine.findUniqueOrThrow({ where: { id: f.commitment.lines[0].id } })
+      ).consumedAmount.toString(),
+    ).toBe('0');
+    expect(
+      await db.actualCost.count({ where: { projectId: f.project.id, reversedAt: null } }),
+    ).toBe(0);
+    await stage('12000', '2');
+    await expect(transaction((tx) => applyBill(tx, f.actor, b.id))).rejects.toThrow(/held/);
+    await reconcile(f.actor, {
+      action: 'bill-restore',
+      id: b.id,
+      note: 'Controller verified the source exists again',
+    });
+    const restored = await transaction((tx) => applyBill(tx, f.actor, b.id, { preview: true }));
+    await reconcile(f.actor, {
+      action: 'bill',
+      id: b.id,
+      note: 'Reviewed restored Bill',
+      reviewedHash: restored!.reviewedHash,
+    });
+    expect(
+      await db.actualCost.count({ where: { projectId: f.project.id, reversedAt: null } }),
+    ).toBe(1);
+  });
+  it('retains no-job and unsupported lines for review; explicit mapping/ignore never guesses or crosses pilot scope', async () => {
+    const f = await pilotFixture();
+    const b = await transaction((tx) =>
+      stageBill(tx, f.c.id, {
+        TxnID: 'unmapped',
+        EditSequence: '1',
+        TxnDate: '2026-09-24',
+        VendorRef: { ListID: 'vendor' },
+        ExpenseLineRet: {
+          TxnLineID: 'l',
+          Amount: '20',
+          Memo: 'No job',
+          AccountRef: { ListID: 'account' },
+        },
+      }),
+    );
+    expect(
+      (await transaction((tx) => applyBill(tx, f.actor, b.id, { preview: true })))?.blocker,
+    ).toMatch(/no Customer/);
+    const other = await db.project.create({
+      data: { name: 'Other ' + f.key, number: 'other-' + f.key },
+    });
+    await reconcile(f.actor, {
+      action: 'bill-allocate',
+      id: b.id,
+      note: 'Test wrong Project allocation',
+      lineDecisions: { l: { projectId: other.id, costCodeId: f.code.id } },
+    });
+    expect(
+      (await transaction((tx) => applyBill(tx, f.actor, b.id, { preview: true })))?.blocker,
+    ).toMatch(/outside the pilot/);
+    await reconcile(f.actor, {
+      action: 'bill-allocate',
+      id: b.id,
+      note: 'Reviewed explicit account-only project expense',
+      lineDecisions: { l: { projectId: f.project.id, costCodeId: f.code.id } },
+    });
+    expect(
+      (await transaction((tx) => applyBill(tx, f.actor, b.id, { preview: true })))?.ready,
+    ).toBe(true);
+    await reconcile(f.actor, {
+      action: 'bill-allocate',
+      id: b.id,
+      note: 'Confirmed overhead non-project cost',
+      lineDecisions: { l: { ignore: true } },
+    });
+    expect(
+      (await transaction((tx) => applyBill(tx, f.actor, b.id, { preview: true })))?.planned,
+    ).toEqual([]);
+    const grouped = await transaction((tx) =>
+      stageBill(tx, f.c.id, {
+        TxnID: 'grouped',
+        EditSequence: '1',
+        TxnDate: '2026-09-24',
+        ItemGroupLineRet: { TxnLineID: 'g', Desc: 'Group detail', TotalAmount: '50' },
+      }),
+    );
+    expect(
+      (await transaction((tx) => applyBill(tx, f.actor, grouped.id, { preview: true })))?.blocker,
+    ).toMatch(/Grouped/);
+  });
+  it('keeps evidence append-only, shows safe run details and denies external/manual accounting access', async () => {
+    const f = await pilotFixture();
+    const external = await db.user.create({
+      data: {
+        firstName: 'External',
+        lastName: f.key,
+        email: f.key + '-ext@example.test',
+        roles: ['CLIENT'],
+      },
+    });
+    await expect(pilotDashboard(external, f.c.id)).rejects.toThrow();
+    await expect(
+      reconcile(external, { action: 'bill-hold', id: 'guessed', note: 'Must fail authorization' }),
+    ).rejects.toThrow();
+    const evidence = evidenceSchema.parse({
+      connectionId: f.c.id,
+      step: 'CONNECTION',
+      passed: true,
+      note: 'Automated test of evidence storage; not a real live result',
+      recordIds: f.c.id,
+      desktopVersion: 'FIXTURE',
+      connectorVersion: 'FIXTURE',
+    });
+    await recordEvidence(f.actor, evidence);
+    const row = await db.quickBooksValidationResult.findFirstOrThrow({
+      where: { connectionId: f.c.id },
+    });
+    await expect(
+      db.quickBooksValidationResult.update({ where: { id: row.id }, data: { note: 'rewrite' } }),
+    ).rejects.toThrow(/append-only/);
+    const status = await pilotDashboard(f.actor, f.c.id);
+    expect(status.exit.missing).toHaveLength(liveSteps.length - 1);
+    expect(status.status).toContain('IN PROGRESS');
+    const run = await db.quickBooksSyncRun.findFirstOrThrow({ where: { connectionId: f.c.id } });
+    const details = JSON.stringify(await runDetail(f.actor, run.id));
+    for (const forbidden of ['passwordHash', 'tokenHash', f.c.password!])
+      expect(details).not.toContain(forbidden);
+  });
+});
 describe('QBWC persistent protocol and financial integration', () => {
   it('adopts an uncertain time write only after a matching transaction query, without resending Add', async () => {
     const f = await bound(),
@@ -314,6 +1073,10 @@ describe('QBWC persistent protocol and financial integration', () => {
         TxnDate: '2026-09-24',
         ItemLineRet: rows,
       });
+      await tx.quickBooksBillMirror.update({
+        where: { id: b.id },
+        data: { lineDecisions: { overhead: { ignore: true } } },
+      });
       await applyBill(tx, f.actor, b.id);
     });
     expect(
@@ -330,7 +1093,11 @@ describe('QBWC persistent protocol and financial integration', () => {
         TxnDate: '2026-09-24',
         ItemLineRet: [rows[0]],
       });
-      await applyBill(tx, f.actor, b.id);
+      const preview = await applyBill(tx, f.actor, b.id, { preview: true });
+      await applyBill(tx, f.actor, b.id, {
+        reviewedHash: preview!.reviewedHash,
+        reason: 'Reviewed changed Bill after prior overhead decision',
+      });
     });
     expect(await db.actualCost.count({ where: { projectId: other.id, reversedAt: null } })).toBe(0);
     expect(

@@ -30,4 +30,6 @@ Dedicated SOAP/QWC service, hashed credentials/tickets, discovery/company bindin
 
 ## Phase 8 — Reporting and automation
 
+**Not started.** Phase 7.5 adds [controlled live validation](QUICKBOOKS_PILOT.md): pilot allowlists, pause, pre-flight, reviewed imports/reversals, append-only test results and guarded activation. Actual Cedar Winds live validation remains pending; automated tests do not change that status.
+
 Close Phase 7 live-validation and tax/deletion gaps first. Then extend normalized portfolio reports and management dashboards; warranty/service operations through portal/file/message boundaries; scheduled selection/trade/connector reminders with durable deduplication; workflow automation; production hardening, monitoring, retention and recovery; and audited CoConstruct migration/retirement tools.

@@ -1,5 +1,9 @@
 # Database Source of Truth
 
+## Phase 7.5 pilot additions
+
+`202609280001_quickbooks_pilot` extends QuickBooksMode with PILOT/PAUSED, connection pilot scope/backup/live-validation/auth-failure fields, run mode and safe request status/result. Bill mirrors have reviewed line decisions and persistent suppression. Append-only `QuickBooksValidationResult` stores operator/version/record/company/scope evidence; triggers preserve completed request diagnostics and validation history. Existing ACTIVE connections are deliberately reset to DISCOVERY by this migration. No new financial ledger. See [pilot rules](QUICKBOOKS_PILOT.md).
+
 ## Phase 5 additions
 
 Migration `202609240002_client_selections_portal` adds ClientProjectAccess, Allowance, Selection, SelectionOption, SelectionDecision, ClientApproval, Conversation, ProjectMessage and ConversationRead. Contact.portalUserId now references User; resolve any preexisting orphan portal IDs deliberately before deployment. Allowance source estimate/budget links and cost codes have foreign keys. Unique project/user and project/contact grants, one selection per allowance, one decision per selection and one client approval per CO revision prevent duplicate allocation/evidence.

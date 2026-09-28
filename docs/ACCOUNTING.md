@@ -1,5 +1,7 @@
 # Accounting and QuickBooks Desktop
 
+Phase 7.5 adds a [controlled live pilot](QUICKBOOKS_PILOT.md). Discovery/pause never mutate the job-cost ledger. Pilot Bills require exact reviewed versions and allowlisted identities. Reasoned allocation/unlink/reversal remains within existing ActualCost/Commitment transactions; holds prevent reimport. Missing Job lines stay in reconciliation. No unrestricted synchronization or live validation has been performed.
+
 QuickBooks Desktop is authoritative for the general ledger. CWManagement owns project operations, approvals, budgets, commitments, time allocation, and job-cost context.
 
 `AccountingSyncMapping` records the CW entity/type, QuickBooks ListID or TxnID, sync direction, status, last successful timestamp, and sanitized error. It does not contain credentials. Synced financial transactions become immutable; changes create revisions/reversals and another audit event.

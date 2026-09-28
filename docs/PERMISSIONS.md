@@ -1,5 +1,7 @@
 # Permissions
 
+Phase 7.5 reuses QUICKBOOKS_VIEW/CONFIGURE/QUEUE/RECONCILE plus ACTUAL_COST_RECONCILE and project authorization. Preview and run diagnostics stay behind accounting capabilities. Manual Bill allocation, unlink, hold/reversal and restore require reasons and audit records; QB actuals cannot bypass these through generic ActualCost reconciliation. Only OWNER may override incomplete pilot exit evidence, additionally requiring CONFIGURE, explicit activation and a reason. The override does not claim live validation. Client/trade accounts remain denied.
+
 ## Decision
 
 Roles provide baseline capability bundles. `UserCapability` provides explicit per-user allow or deny overrides. Server code calls `requireCapability`; hardcoded role checks remain only in legacy time/admin paths until migrated.

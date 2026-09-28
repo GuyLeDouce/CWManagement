@@ -4,10 +4,12 @@ import { Tx } from '../db';
 import { ensure } from '../errors';
 import { mapping, localEntity } from './mapping';
 import { object, text, XmlNode } from './xml';
+import { permitOutbound } from './pilot';
 export async function buildRequest(
   tx: Tx,
   c: QuickBooksConnection,
   job: QuickBooksSyncJob,
+  preview = false,
 ): Promise<{ operation: string; data: XmlNode; isWrite: boolean }> {
   const payload = object(job.payload);
   const read = (operation: string, data: XmlNode = {}) => ({ operation, data, isWrite: false });
@@ -48,10 +50,7 @@ export async function buildRequest(
       IncludeLinkedTxns: true,
     });
   }
-  ensure(
-    c.mode === 'ACTIVE' && c.boundCompanyHash && !c.companyMismatch,
-    'Outbound sync is not active for a verified company.',
-  );
+  await permitOutbound(tx, c, job.operation, job.entityId);
   if (job.operation === 'PURCHASE_ORDER') {
     const r = await tx.purchasingRevision.findUnique({
       where: { id: job.entityId ?? '' },
@@ -65,8 +64,8 @@ export async function buildRequest(
       'Only current issued Purchase Orders are eligible; Work Orders remain CWManagement commitments.',
     );
     ensure(
-      r.taxAmount.isZero(),
-      'Taxable PO export requires live Canadian sales-tax mapping. This PO remains blocked until that mapping is supported.',
+      r.taxAmount.isZero() && !r.lines.some((l) => l.taxable),
+      'This Purchase Order includes tax behavior that has not yet been live validated with QuickBooks Desktop. It was not sent.',
     );
     const project = await mapping(tx, c.id, 'PROJECT', r.document.projectId);
     const direct = await tx.accountingSyncMapping.findUnique({
@@ -104,6 +103,10 @@ export async function buildRequest(
       },
     });
     // Never overwrite a QuickBooks transaction whose current EditSequence has not been checked.
+    ensure(
+      !existing?.quickBooksTxnId || object(existing.metadata).revisionId !== r.id,
+      'This PO revision is already synchronized. Locate its TxnID in QuickBooks; do not export it again.',
+    );
     if (existing?.quickBooksTxnId && job.phase !== 'MOD_READY') {
       ensure(existing.status === 'SYNCED', 'Purchase Order requires reconciliation.');
       return read('PurchaseOrderQueryRq', {
@@ -194,10 +197,11 @@ export async function buildRequest(
       minutes > 0 && minutes <= 1440,
       'Time duration must be between one minute and 24 hours.',
     );
-    await tx.quickBooksSyncJob.update({
-      where: { id: job.id },
-      data: { payload: { sourceVersion: s.version } },
-    });
+    if (!preview)
+      await tx.quickBooksSyncJob.update({
+        where: { id: job.id },
+        data: { payload: { sourceVersion: s.version } },
+      });
     return {
       operation: 'TimeTrackingAddRq',
       isWrite: true,
