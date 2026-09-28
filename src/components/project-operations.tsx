@@ -1,4 +1,7 @@
 'use client';
+import { TemplateTools, WordingPicker } from './templates';
+import { ScheduleTools } from './schedule-tools';
+import { WorkCentre } from './productivity';
 import Link from 'next/link';
 import { FormEvent, useRef, useState } from 'react';
 import { Archive, Check, FileText, Image as PhotoIcon, Plus } from 'lucide-react';
@@ -68,6 +71,7 @@ type StoredFile = {
   uploader: { firstName: string; lastName: string };
 };
 type Project = {
+  setupDefaults?: { folders?: string[]; dailyLog?: string };
   id: string;
   number: string;
   name: string;
@@ -144,6 +148,13 @@ export function ProjectWorkspace({ id, tab = 'overview' }: { id: string; tab?: s
               <div className="detail-header">
                 <Badge value={project.status} />
                 <span>{project.stage || 'Stage not set'}</span>
+                <span>{project.address}</span>
+                <span>
+                  {project.contacts
+                    .filter((c) => c.role === 'CLIENT')
+                    .map((c) => `${c.contact.firstName} ${c.contact.lastName}`)
+                    .join(', ')}
+                </span>
               </div>
             </div>
           </div>
@@ -159,7 +170,11 @@ export function ProjectWorkspace({ id, tab = 'overview' }: { id: string; tab?: s
             ))}
           </nav>
           {active === 'overview' ? (
-            <Overview project={project} />
+            <>
+              <Overview project={project} />
+              <TemplateTools projectId={project.id} kind="PROJECT" refresh={refresh} />
+              <WorkCentre projectId={project.id} />
+            </>
           ) : active === 'schedule' ? (
             <Schedule project={project} />
           ) : active === 'estimate' ? (
@@ -376,6 +391,8 @@ function Schedule({ project }: { project: Project }) {
         </select>
       </div>
       <ErrorBox message={error} />
+      <TemplateTools projectId={project.id} kind="SCHEDULE" refresh={refresh} />
+      <ScheduleTools projectId={project.id} tasks={tasks} refresh={refresh} />
       {!data ? (
         <Loading />
       ) : tasks.length ? (
@@ -397,7 +414,30 @@ function Schedule({ project }: { project: Project }) {
                 </strong>
                 {task.description && <small>{task.description}</small>}
               </button>
-              <Badge value={task.status} />
+              <select
+                aria-label={`Status ${task.name}`}
+                value={task.status}
+                onChange={async (e) => {
+                  try {
+                    await api('standards/schedule', {
+                      projectId: project.id,
+                      ids: [task.id],
+                      status: e.target.value,
+                    });
+                    void refresh();
+                  } catch (error) {
+                    window.alert(error instanceof Error ? error.message : 'Could not update task.');
+                  }
+                }}
+              >
+                {['NOT_STARTED', 'READY', 'IN_PROGRESS', 'BLOCKED', 'COMPLETE', 'CANCELLED'].map(
+                  (s) => (
+                    <option key={s} value={s}>
+                      {pretty(s)}
+                    </option>
+                  ),
+                )}
+              </select>
               <span>{task.startDate ? date(task.startDate) : '—'}</span>
               <span>{task.endDate ? date(task.endDate) : '—'}</span>
               <span>
@@ -704,6 +744,7 @@ function DailyLogForm({
   close: () => void;
   saved: () => void;
 }) {
+  const defaults = useApi<{ project: Project }>(`management/project?id=${projectId}`);
   const ref = useRef<HTMLFormElement>(null);
   const submit = () => {
     const f = new FormData(ref.current!);
@@ -726,6 +767,15 @@ function DailyLogForm({
   return (
     <Modal title={log ? 'Edit daily log' : 'New daily log'} onClose={close}>
       <form ref={ref} className="entity-form daily-log-form" onSubmit={(e) => e.preventDefault()}>
+        <WordingPicker
+          kind="DAILY_LOG"
+          onChoose={(content) => {
+            const field = ref.current?.elements.namedItem(
+              'generalNotes',
+            ) as HTMLTextAreaElement | null;
+            if (field) field.value = content.dailyLog;
+          }}
+        />
         <label>
           Date
           <input
@@ -748,7 +798,14 @@ function DailyLogForm({
         ].map(([name, label]) => (
           <label key={name}>
             {label}
-            <textarea name={name} defaultValue={String(log?.[name as keyof DailyLog] || '')} />
+            <textarea
+              name={name}
+              defaultValue={String(
+                log?.[name as keyof DailyLog] ||
+                  (name === 'generalNotes' ? defaults.data?.project.setupDefaults?.dailyLog : '') ||
+                  '',
+              )}
+            />
           </label>
         ))}
         <label className="check-inline">
@@ -784,6 +841,17 @@ function Files({ project, kind }: { project: Project; kind: 'DOCUMENT' | 'PHOTO'
         </button>
       </div>
       <ErrorBox message={error} />
+      {kind === 'DOCUMENT' && !!project.setupDefaults?.folders?.length && (
+        <details className="panel">
+          <summary>Project document checklist</summary>
+          <p>Company-standard categories to prepare for this project.</p>
+          <ul>
+            {project.setupDefaults.folders.map((folder, i) => (
+              <li key={i}>{folder}</li>
+            ))}
+          </ul>
+        </details>
+      )}
       {!data ? (
         <Loading />
       ) : data.files.length ? (

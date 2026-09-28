@@ -66,3 +66,7 @@ Phase 6 adds TRADE ConversationAudience, FileOrigin, InstructionStatus, Deficien
 ## Phase 7 accounting records
 
 Migration `202609240004_quickbooks_desktop` adds QuickBooksConnection, QuickBooksCandidate, QuickBooksSyncSession, QuickBooksSyncRun, QuickBooksSyncJob, QuickBooksRequest, QuickBooksSyncIssue and QuickBooksBillMirror. QuickBooksMode is DISCOVERY/ACTIVE; job states distinguish BLOCKED, FAILED and RECONCILIATION_REQUIRED. Existing AccountingSyncMapping gains nullable connection, EditSequence/FullName/type, source version, enabled state and metadata. A partial unique index preserves legacy mappings. Source/ListID/TxnID uniqueness is per connection; deterministic request keys prevent duplicate jobs. Immutable request evidence and TimeSegment conflict triggers enforce accounting safety. BillMirror is staging, never a second cost ledger. ActualCost uses existing source/reversal fields.
+
+## Productization additions
+
+`202609280002_company_standards` adds CompanyTemplate, TemplateApplication and CostCatalogItem, four capabilities, project setup-default snapshots and company province/markup defaults. `202609280003_standards_safety` adds ProjectSpecification with explicit client visibility and optimistic version. Existing ledger, accounting, approval and portal grants are untouched. TemplateApplication stores the applied version/content and unique request key; project copies are independent. Catalog costs use Decimal(18,4). No example production data is seeded.

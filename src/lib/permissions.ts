@@ -198,6 +198,10 @@ const tradeManagement: Capability[] = [
 ];
 for (const role of ['PM', 'PROJECT_MANAGER', 'CONTROLLER'] as Role[])
   roleCapabilities[role]!.push(...tradeManagement);
+for (const role of ['CONTROLLER', 'ESTIMATOR', 'PROJECT_MANAGER', 'PM', 'ADMIN'] as Role[])
+  roleCapabilities[role]!.push('TEMPLATE_VIEW', 'TEMPLATE_MANAGE', 'COST_CATALOG_VIEW');
+roleCapabilities.CONTROLLER!.push('COST_CATALOG_MANAGE');
+roleCapabilities.ESTIMATOR!.push('COST_CATALOG_MANAGE');
 export function roleGrants(user: Pick<User, 'roles'>, capability: Capability) {
   if (isExternal(user) && (user.roles.length !== 1 || user.roles[0] !== 'CLIENT')) return false;
   if (user.roles.includes('CLIENT')) return capability === 'CLIENT_PORTAL_ACCESS';

@@ -44,10 +44,14 @@ import {
 import { NotificationScreen } from './notifications';
 import { FinancialsScreen } from './financials';
 import { QuickBooksScreen } from './quickbooks';
+import { TemplatesScreen } from './templates';
+import { WorkCentre, GlobalSearch, RecentProjects } from './productivity';
 const items = [
   { view: '', label: 'Dashboard', icon: LayoutDashboard },
   { view: 'leads', label: 'Leads', icon: UserRoundSearch },
   { view: 'projects', label: 'Projects', icon: FolderKanban },
+  { view: 'my-work', label: 'My Work', icon: CheckCheck },
+  { view: 'templates', label: 'Templates', icon: FolderKanban },
   { view: 'schedule', label: 'Schedule', icon: CalendarDays },
   { view: 'financials', label: 'Financials', icon: Landmark },
   { view: 'time', label: 'Time', icon: Clock3 },
@@ -80,6 +84,8 @@ export function Workspace({ path }: { path: string[] }) {
       (['', 'leads', 'projects', 'schedule', 'time', 'reports'].includes(i.view) &&
         managementUser) ||
       i.view === 'notifications' ||
+      (i.view === 'my-work' && managementUser) ||
+      (i.view === 'templates' && cap('TEMPLATE_VIEW', 'COST_CATALOG_VIEW')) ||
       (i.view === 'financials' &&
         cap(
           'COST_CODE_VIEW',
@@ -113,6 +119,7 @@ export function Workspace({ path }: { path: string[] }) {
           </span>
         </button>
         <div className="header-right">
+          {managementUser && <GlobalSearch />}
           <span className="header-user">
             {data?.user.firstName} {data?.user.lastName}
           </span>
@@ -163,6 +170,9 @@ export function Workspace({ path }: { path: string[] }) {
                 </Link>
               ))}
             </nav>
+            {managementUser && (
+              <RecentProjects projectId={view === 'projects' ? path[1] : undefined} />
+            )}
             <div className="sidebar-bottom">
               <span className="small">CEDAR WINDS</span>
               <p>
@@ -200,6 +210,15 @@ export function Workspace({ path }: { path: string[] }) {
             <DashboardScreen />
           ) : view === 'projects' && path[1] ? (
             <ProjectScreen id={path[1]} tab={path[2]} />
+          ) : view === 'templates' ? (
+            <TemplatesScreen />
+          ) : view === 'my-work' ? (
+            <WorkCentre mine />
+          ) : view === 'schedule' ? (
+            <>
+              <h1>Company schedule</h1>
+              <WorkCentre />
+            </>
           ) : view === 'projects' ? (
             <ProjectsScreen />
           ) : view === 'contacts' ? (

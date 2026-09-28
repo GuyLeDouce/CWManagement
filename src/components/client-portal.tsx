@@ -1,4 +1,5 @@
 'use client';
+import { WordingPicker } from './templates';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -280,6 +281,13 @@ export function PortalContent({
       {section === 'selections' && (
         <>
           <h2>Your selections</h2>
+          {data.specifications.map((s) => (
+            <section className="client-card" key={s.id}>
+              <small>Specification · {s.category}</small>
+              <h3>{s.title}</h3>
+              <p>{s.description}</p>
+            </section>
+          ))}
           <p>
             Choose the details that make this project yours. Prices are before HST; any contract
             adjustment will be issued separately for your approval.
@@ -752,6 +760,12 @@ export function ProjectMessages({
           Your message
           <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={10000} />
         </label>
+        {!client && (
+          <WordingPicker
+            kind="COMMUNICATION"
+            onChoose={(content) => setBody(content.communication)}
+          />
+        )}
         <ActionButton
           disabled={!body.trim() || !subject.trim()}
           action={async () => {

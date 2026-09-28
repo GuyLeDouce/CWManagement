@@ -1,8 +1,10 @@
 'use client';
+import { Specifications } from './specifications';
 import { useState } from 'react';
 import { api, useApi, pretty } from '@/lib/client';
 import { ActionButton, ErrorBox, Loading } from './ui';
 import { PortalContent, PortalData } from './client-portal';
+import { TemplateTools } from './templates';
 
 type Option = {
   name: string;
@@ -114,6 +116,14 @@ export function SelectionWorkspace({ projectId }: { projectId: string }) {
     <>
       <ErrorBox message={error} />
       <h2>Allowances & selections</h2>
+      <Specifications projectId={projectId} />
+      <TemplateTools projectId={projectId} kind="SELECTION" refresh={refresh} />
+      <ActionButton
+        action={() => api('standards/selections/from-estimate', { projectId })}
+        onDone={refresh}
+      >
+        Create selections from accepted allowances
+      </ActionButton>
       <p>
         Contract allowance values are client prices before HST. Internal cost baselines remain
         private. One selection uses one allowance; split categories before publishing if separate

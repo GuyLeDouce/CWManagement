@@ -5,6 +5,7 @@ import { Plus, Printer } from 'lucide-react';
 import { api, pretty, useApi } from '@/lib/client';
 import { ActionButton, Badge, Empty, ErrorBox, Loading, Modal } from './ui';
 import { ProcurementOverview, VarianceAlerts, BudgetHistory } from './purchasing';
+import { TemplateTools, CatalogQuickAdd, WordingPicker } from './templates';
 
 const types = ['LABOUR', 'MATERIAL', 'SUBCONTRACT', 'EQUIPMENT', 'OTHER'];
 type Code = {
@@ -453,6 +454,21 @@ export function ProjectEstimate({ projectId }: { projectId: string }) {
         </button>
       </div>
       <ErrorBox message={estimatesQuery.error} />
+      <TemplateTools
+        projectId={projectId}
+        kind="ESTIMATE"
+        revisionId={revision?.id}
+        revisionVersion={revision?.version}
+        refresh={estimatesQuery.refresh}
+      />
+      {revision && ['DRAFT', 'INTERNAL_REVIEW'].includes(revision.status) && (
+        <CatalogQuickAdd
+          projectId={projectId}
+          revisionId={revision.id}
+          revisionVersion={revision.version}
+          refresh={estimatesQuery.refresh}
+        />
+      )}
       {!estimatesQuery.data ? (
         <Loading />
       ) : !estimate || !totals ? (
@@ -502,19 +518,13 @@ export function ProjectEstimate({ projectId }: { projectId: string }) {
             </div>
             {revision.lines.map((x) => {
               return (
-                <article className="schedule-row estimate-row" key={x.id}>
-                  <strong>{x.description}</strong>
-                  <span>
-                    {codes.data?.costCodes.find((c) => c.id === x.costCodeId)?.code} ·{' '}
-                    {pretty(x.costType)}
-                  </span>
-                  <span>
-                    {x.quantity} {x.unit}
-                  </span>
-                  <span>{dollars(x.amounts.cost)}</span>
-                  <span>{dollars(x.amounts.markup)}</span>
-                  <span>{dollars(x.amounts.price)}</span>
-                </article>
+                <EstimateGridRow
+                  key={`${x.id}:${revision.version}`}
+                  line={x}
+                  revision={revision}
+                  codes={codes.data?.costCodes || []}
+                  refresh={estimatesQuery.refresh}
+                />
               );
             })}
           </div>
@@ -549,6 +559,122 @@ export function ProjectEstimate({ projectId }: { projectId: string }) {
     </>
   );
 }
+function EstimateGridRow({
+  line,
+  revision,
+  codes,
+  refresh,
+}: {
+  line: Line;
+  revision: Revision;
+  codes: Code[];
+  refresh: () => void;
+}) {
+  const [draft, setDraft] = useState(line),
+    [dirty, setDirty] = useState(false);
+  const locked = !['DRAFT', 'INTERNAL_REVIEW'].includes(revision.status);
+  const field = (key: 'description' | 'quantity' | 'unit' | 'unitCost' | 'markupValue') => (
+    <input
+      disabled={locked}
+      aria-label={`Edit ${key} ${line.description}`}
+      value={draft[key]}
+      onChange={(e) => {
+        setDraft({ ...draft, [key]: e.target.value });
+        setDirty(true);
+      }}
+    />
+  );
+  return (
+    <article className="schedule-row estimate-row estimate-inline">
+      <span>{field('description')}</span>
+      <select
+        disabled={locked}
+        aria-label={`Cost code ${line.description}`}
+        value={draft.costCodeId}
+        onChange={(e) => {
+          setDraft({ ...draft, costCodeId: e.target.value });
+          setDirty(true);
+        }}
+      >
+        {codes.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.code} · {c.name}
+          </option>
+        ))}
+      </select>
+      <span>
+        {field('quantity')}
+        {field('unit')}
+      </span>
+      <span>
+        {field('unitCost')}
+        <small>Cost {dollars(line.amounts.cost)}</small>
+      </span>
+      <span>
+        <select
+          aria-label={`Markup method ${line.description}`}
+          disabled={locked}
+          value={draft.markupMethod}
+          onChange={(e) => {
+            setDraft({ ...draft, markupMethod: e.target.value });
+            setDirty(true);
+          }}
+        >
+          {['NONE', 'FIXED', 'PERCENT_ON_COST'].map((x) => (
+            <option key={x}>{x}</option>
+          ))}
+        </select>
+        {field('markupValue')}
+      </span>
+      <span>
+        {dollars(line.amounts.price)}
+        <small>Client price</small>
+      </span>
+      <div className="row-actions">
+        {dirty && (
+          <ActionButton
+            className="primary small-button"
+            action={() => {
+              const keys = [
+                'id',
+                'sectionId',
+                'costCodeId',
+                'costType',
+                'description',
+                'clientDescription',
+                'quantity',
+                'unit',
+                'unitCost',
+                'markupMethod',
+                'markupValue',
+                'taxable',
+                'optional',
+                'allowance',
+                'included',
+                'sortOrder',
+              ] as const;
+              const values = Object.fromEntries(keys.map((k) => [k, draft[k]]));
+              return api('financial/estimate-lines', {
+                ...values,
+                revisionId: revision.id,
+                expectedVersion: revision.version,
+              });
+            }}
+            onDone={refresh}
+          >
+            Save row
+          </ActionButton>
+        )}
+        <ActionButton
+          className="small-button"
+          action={() => api('standards/catalog/from-line', { id: line.id })}
+        >
+          Save to catalog
+        </ActionButton>
+      </div>
+    </article>
+  );
+}
 function LineForm({
   revision,
   codes,
@@ -560,6 +686,9 @@ function LineForm({
   close: () => void;
   saved: () => void;
 }) {
+  const defaults = useApi<{
+    settings: { defaultMarkupMethod: string; defaultMarkupValue: string };
+  }>('financial/settings');
   const ref = useRef<HTMLFormElement>(null);
   return (
     <Modal title="Add estimate line" onClose={close}>
@@ -615,7 +744,11 @@ function LineForm({
           </label>
           <label>
             Markup method
-            <select name="markupMethod">
+            <select
+              key={defaults.data?.settings.defaultMarkupMethod}
+              name="markupMethod"
+              defaultValue={defaults.data?.settings.defaultMarkupMethod || 'NONE'}
+            >
               <option>NONE</option>
               <option>PERCENT_ON_COST</option>
               <option>FIXED</option>
@@ -623,7 +756,14 @@ function LineForm({
           </label>
           <label>
             Markup value
-            <input name="markupValue" type="number" step=".0001" min="0" defaultValue="0" />
+            <input
+              key={defaults.data?.settings.defaultMarkupValue}
+              name="markupValue"
+              type="number"
+              step=".0001"
+              min="0"
+              defaultValue={defaults.data?.settings.defaultMarkupValue || '0'}
+            />
           </label>
           <label>
             Order
@@ -699,6 +839,7 @@ export function ProjectProposals({
           Create proposal
         </button>
       </div>
+      <TemplateTools projectId={projectId} kind="PROPOSAL" refresh={query.refresh} />
       {!query.data ? (
         <Loading />
       ) : query.data.proposals.length ? (
@@ -765,6 +906,7 @@ export function ProjectProposals({
       )}
       {create && (
         <ProposalForm
+          projectId={projectId}
           estimates={estimates.data?.estimates || []}
           contacts={contacts}
           close={() => setCreate(false)}
@@ -786,16 +928,21 @@ export function ProjectProposals({
 }
 type Person = { id: string; firstName: string; lastName: string };
 function ProposalForm({
+  projectId,
   estimates,
   contacts,
   close,
   saved,
 }: {
+  projectId: string;
   estimates: Estimate[];
   contacts: Array<{ role: string; contact: Person }>;
   close: () => void;
   saved: () => void;
 }) {
+  const defaults = useApi<{ project: { setupDefaults?: { proposal?: Record<string, string> } } }>(
+    `management/project?id=${projectId}`,
+  );
   const ref = useRef<HTMLFormElement>(null),
     revisions = estimates.flatMap((e) =>
       e.revisions.map((r) => ({ id: r.id, label: `${e.estimateNumber} Rev ${r.revision}` })),
@@ -803,6 +950,21 @@ function ProposalForm({
   return (
     <Modal title="Create proposal" onClose={close}>
       <form ref={ref} className="entity-form" onSubmit={(e) => e.preventDefault()}>
+        <WordingPicker
+          kind="PROPOSAL"
+          onChoose={(content) => {
+            for (const key of [
+              'introduction',
+              'scope',
+              'exclusions',
+              'assumptions',
+              'terms',
+            ] as const) {
+              const field = ref.current?.elements.namedItem(key) as HTMLTextAreaElement | null;
+              if (field) field.value = content[key];
+            }
+          }}
+        />
         <label>
           Estimate revision
           <select name="estimateRevisionId" required>
@@ -833,7 +995,10 @@ function ProposalForm({
         {['introduction', 'scope', 'exclusions', 'assumptions', 'terms'].map((x) => (
           <label key={x}>
             {pretty(x)}
-            <textarea name={x} />
+            <textarea
+              name={x}
+              defaultValue={defaults.data?.project.setupDefaults?.proposal?.[x] || ''}
+            />
           </label>
         ))}
         <label>

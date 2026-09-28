@@ -30,3 +30,9 @@ Zero-price-variance decisions approve without ledger mutations; purchasing and f
 ## Workspace
 
 Project → Selections offers allowance capture, draft editing, options, client-safe attachments, deadlines, publish/unpublish, decisions/comments, CO links and close. Project → Clients previews published content with actions disabled. Dates drive due/overdue display; automated reminders require a future deduplicated scheduled job. No automatic supplier ordering occurs.
+
+## Reuse and specifications
+
+Selection sheets/options can be saved as reviewed templates and copied into private project drafts. Accepted estimate allowance lines can create Allowance + Selection together with exact source pricing, avoiding duplicate contractual amounts on repeated requests. New selections still require normal publish/decision/CO workflows.
+
+ProjectSpecification is information-only wording, separate from a priced client choice. Specification templates copy as internal drafts; staff publish with CLIENT_CONTENT_PUBLISH. Client projection exposes only explicitly visible title/category/description/update date. Specifications do not create decisions or change contract/budget. Changes are version-checked and audited; this is not an immutable client approval record.

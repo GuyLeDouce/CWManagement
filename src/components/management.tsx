@@ -5,6 +5,8 @@ import { BriefcaseBusiness, Clock3, FolderKanban, Plus, Search } from 'lucide-re
 import { api, date, pretty, useApi } from '@/lib/client';
 import { ActionButton, Badge, Empty, ErrorBox, Loading, Modal } from './ui';
 import { ProjectWorkspace } from './project-operations';
+import { ProjectWizard } from './project-setup';
+import { WorkCentre } from './productivity';
 
 type Project = {
   id: string;
@@ -80,6 +82,7 @@ export function DashboardScreen() {
       intro="Live operational information from CWManagement."
     >
       <ErrorBox message={error} />
+      <WorkCentre />
       {data && (
         <>
           <div className="metric-grid">
@@ -292,9 +295,8 @@ export function ProjectsScreen() {
         <Empty title="No projects found">Adjust the filters or create a project.</Empty>
       )}
       {create && (
-        <ProjectForm
-          onClose={() => setCreate(false)}
-          onSaved={() => {
+        <ProjectWizard
+          close={() => {
             setCreate(false);
             void refresh();
           }}
@@ -304,7 +306,7 @@ export function ProjectsScreen() {
   );
 }
 
-function ProjectForm({
+export function ProjectForm({
   project,
   onClose,
   onSaved,

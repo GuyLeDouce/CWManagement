@@ -227,6 +227,10 @@ enum Role {
 }
 
 enum Capability {
+  TEMPLATE_VIEW
+  TEMPLATE_MANAGE
+  COST_CATALOG_VIEW
+  COST_CATALOG_MANAGE
   QUICKBOOKS_VIEW
   QUICKBOOKS_CONFIGURE
   QUICKBOOKS_MAP
@@ -620,6 +624,9 @@ model PmJobsite {
 }
 
 model Project {
+  specifications         ProjectSpecification[]
+  templateApplications   TemplateApplication[]
+  setupDefaults          Json                    @default("{}")
   tradeAccess            TradeProjectAccess[]
   siteInstructions       SiteInstruction[]
   deficiencies           Deficiency[]
@@ -677,6 +684,20 @@ model Project {
   forecastAdjustments    ForecastAdjustment[]
 
   @@map("Jobsite")
+}
+
+model ProjectSpecification {
+  id            String   @id @default(cuid())
+  projectId     String
+  category      String
+  title         String
+  description   String
+  clientVisible Boolean  @default(false)
+  version       Int      @default(1)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([projectId, clientVisible])
 }
 
 model ProjectAssignment {
@@ -1163,6 +1184,7 @@ model Notification {
 }
 
 model CostCode {
+  catalogItems        CostCatalogItem[]
   allowances          Allowance[]
   selectionOptions    SelectionOption[]
   purchasingLines     PurchasingLine[]
@@ -1677,30 +1699,100 @@ model ExportItem {
 }
 
 model Settings {
-  siteInstructionPrefix     String  @default("SI-")
-  nextSiteInstructionNumber Int     @default(1)
-  deficiencyPrefix          String  @default("DEF-")
-  nextDeficiencyNumber      Int     @default(1)
-  purchaseOrderPrefix       String  @default("PO")
-  nextPurchaseOrderNumber   Int     @default(1)
-  workOrderPrefix           String  @default("WO")
-  nextWorkOrderNumber       Int     @default(1)
-  changeOrderPrefix         String  @default("CO")
-  nextChangeOrderNumber     Int     @default(1)
-  purchasingTerms           String  @default("")
-  changeOrderTerms          String  @default("")
-  id                        String  @id @default("company")
-  timezone                  String  @default("America/Toronto")
-  reportRecipient           String  @default("")
-  weekStartsOn              Int     @default(1)
-  taxRate                   Decimal @default(0.13) @db.Decimal(7, 6)
-  estimatePrefix            String  @default("EST")
-  proposalPrefix            String  @default("P")
-  nextEstimateNumber        Int     @default(1)
-  nextProposalNumber        Int     @default(1)
-  legalName                 String  @default("Cedar Winds Design~Build")
-  companyAddress            String  @default("")
-  proposalTerms             String  @default("")
+  defaultProvince           String       @default("ON")
+  defaultMarkupMethod       MarkupMethod @default(NONE)
+  defaultMarkupValue        Decimal      @default(0) @db.Decimal(18, 4)
+  siteInstructionPrefix     String       @default("SI-")
+  nextSiteInstructionNumber Int          @default(1)
+  deficiencyPrefix          String       @default("DEF-")
+  nextDeficiencyNumber      Int          @default(1)
+  purchaseOrderPrefix       String       @default("PO")
+  nextPurchaseOrderNumber   Int          @default(1)
+  workOrderPrefix           String       @default("WO")
+  nextWorkOrderNumber       Int          @default(1)
+  changeOrderPrefix         String       @default("CO")
+  nextChangeOrderNumber     Int          @default(1)
+  purchasingTerms           String       @default("")
+  changeOrderTerms          String       @default("")
+  id                        String       @id @default("company")
+  timezone                  String       @default("America/Toronto")
+  reportRecipient           String       @default("")
+  weekStartsOn              Int          @default(1)
+  taxRate                   Decimal      @default(0.13) @db.Decimal(7, 6)
+  estimatePrefix            String       @default("EST")
+  proposalPrefix            String       @default("P")
+  nextEstimateNumber        Int          @default(1)
+  nextProposalNumber        Int          @default(1)
+  legalName                 String       @default("Cedar Winds Design~Build")
+  companyAddress            String       @default("")
+  proposalTerms             String       @default("")
+}
+
+enum CompanyTemplateKind {
+  PROJECT
+  ESTIMATE
+  SCHEDULE
+  SELECTION
+  PROPOSAL
+  SCOPE
+  ASSEMBLY
+  DAILY_LOG
+  COMMUNICATION
+}
+
+model CompanyTemplate {
+  id           String                @id @default(cuid())
+  kind         CompanyTemplateKind
+  name         String
+  description  String                @default("")
+  active       Boolean               @default(true)
+  version      Int                   @default(1)
+  content      Json
+  createdById  String
+  createdAt    DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime              @updatedAt @db.Timestamptz(3)
+  applications TemplateApplication[]
+
+  @@index([kind, active, name])
+}
+
+model TemplateApplication {
+  id              String          @id @default(cuid())
+  templateId      String
+  projectId       String
+  templateVersion Int
+  snapshot        Json
+  requestKey      String          @unique
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+  createdById     String
+  template        CompanyTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([projectId, createdAt])
+}
+
+model CostCatalogItem {
+  id              String       @id @default(cuid())
+  name            String
+  description     String       @default("")
+  costCodeId      String
+  costType        CostCodeType
+  unit            String
+  unitCost        Decimal      @db.Decimal(18, 4)
+  markupMethod    MarkupMethod @default(NONE)
+  markupValue     Decimal      @default(0) @db.Decimal(18, 4)
+  taxable         Boolean      @default(true)
+  vendorContactId String?
+  category        String       @default("")
+  notes           String       @default("")
+  source          String       @default("")
+  active          Boolean      @default(true)
+  version         Int          @default(1)
+  updatedAt       DateTime     @updatedAt @db.Timestamptz(3)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(3)
+  costCode        CostCode     @relation(fields: [costCodeId], references: [id], onDelete: Restrict)
+
+  @@index([active, category, name])
 }
 
 enum SelectionStatus {

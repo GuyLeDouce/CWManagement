@@ -183,7 +183,13 @@ export async function projectProjection(tx: Tx, projectId: string, contactId?: s
     orderBy: { issuedAt: 'desc' },
   });
   const fileIds = new Set(files.map((f) => f.id));
+  const specifications = await tx.projectSpecification.findMany({
+    where: { projectId, clientVisible: true },
+    select: { id: true, title: true, category: true, description: true, updatedAt: true },
+    orderBy: [{ category: 'asc' }, { title: 'asc' }],
+  });
   return {
+    specifications,
     project,
     schedule,
     updates,

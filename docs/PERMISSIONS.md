@@ -57,3 +57,7 @@ Internal capabilities: TRADE_ACCESS_MANAGE, TRADE_CONTENT_PUBLISH, SITE_INSTRUCT
 ## Phase 7 accounting capabilities
 
 QUICKBOOKS_VIEW, QUICKBOOKS_CONFIGURE, QUICKBOOKS_MAP, QUICKBOOKS_QUEUE and QUICKBOOKS_RECONCILE are bundled for OWNER and CONTROLLER. Internal overrides remain available; CLIENT/SUBTRADE/VENDOR identities cannot gain internal capabilities. Browser APIs enforce capabilities and the existing origin boundary. SOAP uses independent credentials and expiring tickets, never browser cookies. Bill application also requires ACTUAL_COST_RECONCILE and existing project access.
+
+## Company standards
+
+TEMPLATE_VIEW/TEMPLATE_MANAGE are bundled for Owner, Controller, Estimator, PM/Project Manager and Admin. COST_CATALOG_VIEW is bundled for those management roles; COST_CATALOG_MANAGE is for Owner, Controller and Estimator. Overrides still apply. Applying a template additionally requires each destination capability (ESTIMATE_EDIT/CREATE, PROJECT_SCHEDULE_EDIT, SELECTION_CREATE) and project access; template access does not bypass financial permissions. New project setup requires PROJECT_CREATE/PROJECT_ASSIGN; contact creation requires CONTACT_MANAGE and existing-client association requires PROJECT_CONTACT_MANAGE. External identities remain blocked before dispatch. Specifications use selection capabilities and require CLIENT_CONTENT_PUBLISH to publish or change published content. Client DTOs explicitly select only published specification identity/wording/date.

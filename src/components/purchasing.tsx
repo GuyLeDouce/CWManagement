@@ -1,4 +1,5 @@
 'use client';
+import { WordingPicker } from './templates';
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { api, pretty, useApi } from '@/lib/client';
@@ -467,6 +468,17 @@ function DocumentEditor({
           className="entity-form purchasing-editor"
           onSubmit={(e) => e.preventDefault()}
         >
+          {!change && (
+            <WordingPicker
+              kind="SCOPE"
+              onChoose={(content) => {
+                for (const key of ['scope', 'terms'] as const) {
+                  const field = ref.current?.elements.namedItem(key) as HTMLTextAreaElement | null;
+                  if (field) field.value = content[key];
+                }
+              }}
+            />
+          )}
           {!change && (
             <label>
               Document type

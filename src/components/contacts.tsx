@@ -33,6 +33,7 @@ type Contact = {
   types: string[];
 };
 export function ContactsScreen() {
+  const [category, setCategory] = useState('');
   const [q, setQ] = useState(''),
     [edit, setEdit] = useState<Contact | null | false>(false),
     [company, setCompany] = useState<Company | null | false>(false);
@@ -63,25 +64,34 @@ export function ContactsScreen() {
         <input value={q} onChange={(e) => setQ(e.target.value)} />
       </label>
       <ErrorBox message={query.error} />
-      <div className="contact-grid">
-        {query.data?.contacts.map((c) => (
-          <article className="panel" key={c.id}>
-            <h2>
-              {c.firstName} {c.lastName}
-            </h2>
-            <p>{c.company?.name || 'Independent contractor / contact'}</p>
-            <p>
-              {c.email} · {c.phone}
-            </p>
-            <div className="tag-row">
-              {c.types.map((t) => (
-                <Badge key={t} value={t} />
-              ))}
-              {!c.active && <Badge value="INACTIVE" />}
-            </div>
-            <button onClick={() => setEdit(c)}>Edit contact</button>
-          </article>
+      <nav className="library-tabs" aria-label="Directory categories">
+        {['', 'CLIENT', 'PROSPECT', 'SUBTRADE', 'VENDOR', 'CONSULTANT'].map((t) => (
+          <button key={t} className={category === t ? 'active' : ''} onClick={() => setCategory(t)}>
+            {t ? pretty(t) : 'All contacts'}
+          </button>
         ))}
+      </nav>
+      <div className="contact-grid">
+        {query.data?.contacts
+          .filter((c) => !category || c.types.includes(category))
+          .map((c) => (
+            <article className="panel" key={c.id}>
+              <h2>
+                {c.firstName} {c.lastName}
+              </h2>
+              <p>{c.company?.name || 'Independent contractor / contact'}</p>
+              <p>
+                {c.email} · {c.phone}
+              </p>
+              <div className="tag-row">
+                {c.types.map((t) => (
+                  <Badge key={t} value={t} />
+                ))}
+                {!c.active && <Badge value="INACTIVE" />}
+              </div>
+              <button onClick={() => setEdit(c)}>Edit contact</button>
+            </article>
+          ))}
       </div>
       <details className="panel">
         <summary>Company directory</summary>

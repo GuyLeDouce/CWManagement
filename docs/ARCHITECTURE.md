@@ -60,3 +60,7 @@ trade-access.ts owns explicit TradeProjectAccess and record scopes; trade-projec
 ## Phase 7 QuickBooks boundary
 
 `src/lib/quickbooks/` isolates SOAP/XML, QWC, configuration/mapping, persistent engine, request construction and reconciliation from financial.ts. The SOAP route uses independent connector credentials/tickets. Browser accounting administration requires explicit capabilities; client/trade DTOs never include accounting configuration. PostgreSQL owns connector state and existing ActualCost/Commitment tables remain reporting truth. See [QuickBooks Desktop](QUICKBOOKS_DESKTOP.md).
+
+## Productization — company standards
+
+`standards-schema.ts` defines bounded, typed template content and Decimal assembly/relative-date rules. `standards.ts` owns the library, catalog, preview imports and atomic copying into existing records. `project-setup.ts` owns the guided setup/selective-copy transaction; `productivity.ts` supplies scoped search/work queues and schedule bulk actions. `specifications.ts` separates information-only specifications from client decisions. `/api/standards/*` remains behind the internal identity, capability, origin and rate-limit boundaries. No template has financial effect until ordinary document approval/issue workflows run. See [Templates](TEMPLATES.md) and [Product UX](PRODUCT_UX.md).

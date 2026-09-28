@@ -1,4 +1,5 @@
 import { isExternal } from '@/lib/external-identity';
+import { dispatchStandards } from '@/lib/standards-api';
 import { dispatchQuickBooks } from '@/lib/quickbooks/admin';
 import { dispatchTrade, dispatchTradeManagement } from '@/lib/trade-api';
 import { dispatchClient, dispatchClientManagement } from '@/lib/client-api';
@@ -132,6 +133,8 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   if (path.startsWith('client/')) return dispatchClient(actor, get, path.slice(7), params, body);
   if (path.startsWith('trade/')) return dispatchTrade(actor, get, path.slice(6), params, body);
   ensure(!isExternal(actor), 'This action is not available.', 403);
+  if (path.startsWith('standards/'))
+    return dispatchStandards(actor, get, path.slice(10), params, body);
   if (path.startsWith('quickbooks/')) return dispatchQuickBooks(actor, get, path.slice(11), body);
   if (path.startsWith('trade-management/'))
     return dispatchTradeManagement(actor, get, path.slice(17), params, body);

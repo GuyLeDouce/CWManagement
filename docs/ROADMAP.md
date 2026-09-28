@@ -28,6 +28,10 @@ Separate Contact-scoped TradeProjectAccess, secure invitation/setup, mobile trad
 
 Dedicated SOAP/QWC service, hashed credentials/tickets, discovery/company binding, PostgreSQL request evidence, operator mappings, zero-tax PO Add/reviewed Mod, approved TimeTrackingAdd and transactional Bill/ActualCost/commitment reconciliation are implemented with tests and an accounting dashboard. Work Orders remain local. [Supported scope and limits](QUICKBOOKS_DESKTOP.md): Canadian taxable PO mapping, deleted-Bill automation and unsupported Bill forms require follow-up before those workflows are production-ready. Complete the [live checklist](QUICKBOOKS_LIVE_VALIDATION.md) before claiming live compatibility.
 
+## Productization Phase — Templates & UX
+
+Company template library, project setup wizard/selective copy, relative schedules, estimate templates, catalog CSV/quick-add, assemblies, private selection/specification templates, proposal/scope wording, accepted-allowance conversion, company defaults, work queues/search/recent projects, inline estimating and schedule bulk/timeline controls are implemented locally. This is not Phase 8. See [Product UX audit](PRODUCT_UX_AUDIT.md), [Templates](TEMPLATES.md), [Cost catalog](COST_CATALOG.md) and [Product UX](PRODUCT_UX.md) for supported scope and remaining refinements. No production rollout is implied by local implementation.
+
 ## Phase 8 — Reporting and automation
 
 **Not started.** Phase 7.5 adds [controlled live validation](QUICKBOOKS_PILOT.md): pilot allowlists, pause, pre-flight, reviewed imports/reversals, append-only test results and guarded activation. Actual Cedar Winds live validation remains pending; automated tests do not change that status.
