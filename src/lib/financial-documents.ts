@@ -5,6 +5,7 @@ import { Actor, roleGrants, requireProjectAccess } from './permissions';
 import { ensure } from './errors';
 import { publishProjectEvent } from './activity';
 import { estimateLineSchema } from './financial';
+import { isExternal } from './external-identity';
 
 export const identifier = z.string().min(1).max(100);
 export function without<T extends object, K extends keyof T>(value: T, ...keys: K[]): Omit<T, K> {
@@ -146,7 +147,7 @@ export async function documentEvent(
     },
   });
   const recipients = users.filter((user) => {
-    if (user.roles.includes('CLIENT')) return false;
+    if (isExternal(user)) return false;
     const has = (capability: Capability) =>
       user.capabilities.find((x) => x.capability === capability)?.granted ??
       roleGrants(user, capability);

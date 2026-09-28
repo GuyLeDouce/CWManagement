@@ -18,7 +18,7 @@ DRAFT → INTERNAL_REVIEW → APPROVED → ISSUED → PARTIALLY_FULFILLED → FU
 
 Review requires priced lines. Internal approval does not create exposure. Approved/review drafts may return to DRAFT, clearing approval. Issuance requires the appropriate issue capability. Issuance records a document state and produces a printable snapshot; it does not send an email or prove vendor delivery.
 
-Only DRAFT content can be edited. Revising an approved/issued document creates the next numbered draft. Until replacement issuance, the previous issued commitment remains effective. Issuing the replacement supersedes the previous active revision. Revision history, issue identities, scope, pricing, project/vendor/company addresses, terms, and attachment references remain reproducible. Database triggers protect issued revisions and lines. Work Order acknowledgedAt is reserved for future trade acknowledgement; no portal action exists.
+Only DRAFT content can be edited. Revising an approved/issued document creates the next numbered draft. Until replacement issuance, the previous issued commitment remains effective. Issuing the replacement supersedes the previous active revision. Revision history, issue identities, scope, pricing, project/vendor/company addresses, terms, and attachment references remain reproducible. Database triggers protect issued revisions and lines. Phase 6 implements trade acknowledgement evidence and the acknowledgedAt summary field.
 
 ## Commitment integration
 
@@ -43,3 +43,7 @@ Manual actual reversal requires ACTUAL_COST_RECONCILE and a reason. It marks rev
 Project → Purchase Orders contains both document types, search/status filters, history, draft editor, internal review/approval, issue/revise/cancel, and print. The commitment/actual register records invoices, reconciles unlinked actuals, and reverses manual costs. Existing manual actual entry remains in Project → Budget.
 
 Issued PO/WO HTML uses Cedar Winds/company branding, identities and addresses, scope, quantity/unit pricing, tax, total, terms, notes and attachment names. Print/Save as PDF reuses proposal document styles with repeated table headers and page-break rules. It excludes internal notes and unrelated project finances. Attachments reference existing immutable stored objects; PDFs do not embed attachment bytes. Production upload availability still depends on the Phase 2 durable-storage adapter.
+
+## Phase 6 recipient exposure and receipts
+
+The Trade Portal exposes only exact vendorContactId issued revisions on an explicitly granted project. Draft/internal review/approved-but-unissued content is private. Safe snapshot parsing returns own scope, terms, quantities, agreed vendor unit prices, tax and total; client Change Order links, cost allocations, ledgers and internal notes are absent. TRADE-classified issued attachments are shared and retained for that Contact. Historical superseded/cancelled revisions remain readable; only current active issued revisions can be acknowledged. TradeAcknowledgement preserves authenticated immutable receipt evidence and snapshot hash; PurchasingRevision.acknowledgedAt is only a summary. New issued revisions require fresh receipts. No financial effect occurs on acknowledgement.

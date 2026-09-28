@@ -4,7 +4,7 @@ Portal users are authenticated `User` records linked deliberately to a contact o
 
 Client queries use separate allowlisted projections for overview, published schedule/updates, photos/files, selections, allowances, issued Change Orders and messages. They exclude costs, margins, employee/payroll data, vendor pricing, internal notes, accounting records and every unrelated project. Invoice/payment summaries and warranty are not implemented.
 
-Trade Portal remains Phase 6. Client downloads use authenticated project-scoped routes, not public storage URLs.
+Phase 6 implements a separate Trade Portal; see TRADE_PORTAL.md. Client downloads use authenticated project-scoped routes, not public storage URLs.
 
 ## Identity and access
 
@@ -36,4 +36,4 @@ The existing applyChangeOrderAcceptance helper and approval insertion run in one
 
 Event-triggered inbox entries accompany invitations, selection publication, CO issue, newly published content and staff messages. Email runs after commit, best effort; inbox is authoritative. Reads create no notifications. Client actions notify scoped staff and create safe activity entries. Home derives attention and recent updates only from published sources, never AuditLog.
 
-Deadline reminders, email retry outbox, pagination of large histories, warranty, payments and Trade Portal are deferred. Project messaging includes read state; rich message attachments and private individual-client threads are not implemented.
+Deadline reminders, email retry outbox, pagination of large histories, warranty and payments are deferred. Client project messaging includes read state; rich client message attachments and private individual-client threads are not implemented. Trade messaging uses its own Contact-scoped authorization boundary.

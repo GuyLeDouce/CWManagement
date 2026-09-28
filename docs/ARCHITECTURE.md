@@ -43,10 +43,18 @@ Every protected read and mutation is checked server-side. UI hiding is convenien
 
 `purchasing.ts` owns shared PO/WO families, revisions and issuance into the existing Commitment ledger. `change-orders.ts` owns client change revisions and atomic acceptance into ContractAdjustment and BudgetVersion. `commitments.ts` owns consumption, reconciliation, reversal, and fulfillment states. Shared `financial-math.ts` preserves Phase 3 Decimal rules. `financial-documents.ts` handles numbering, identity snapshots, validated references and event-triggered notifications. `financial-api.ts` groups `/api/financial/operations/*` behind the existing authenticated dispatcher and origin/rate-limit protections.
 
-Generic project/activity responses omit audit before/after payloads; nonfinancial project readers do not receive contract amounts. Internal document access uses capabilities plus project scope. Print snapshots omit internal notes and client margins. Vendor authentication, payroll and synchronization remain deferred.
+Generic project/activity responses omit audit before/after payloads; nonfinancial project readers do not receive contract amounts. Internal document access uses capabilities plus project scope. Print snapshots omit internal notes and client margins. Phase 6 adds vendor authentication; payroll and accounting synchronization remain deferred.
 
 ## Phase 5 services
 
 client-access.ts owns grants and invitations using existing sessions/tokens. client-projections.ts defines client DTOs. selections.ts owns allowances, options, publication and immutable decisions; nonzero variance creates a draft in the existing CO domain. client-approvals.ts calls the same atomic acceptance function as internal acceptance. client-messages.ts owns audience-scoped threads/read states. client-api.ts dispatches portal and management actions behind origin/rate-limit checks. client-notices.ts creates transactional inbox records and sends best-effort email after commit.
 
 CLIENT cannot inherit internal capabilities through mixed roles or overrides; the dispatcher blocks legacy internal endpoints. StoredFile downloads recheck client grants and visibility. Database triggers protect approval evidence, confirmed selections and published options. See CLIENT_PORTAL.md, SELECTIONS.md and CLIENT_COMMUNICATION.md.
+
+## Phase 6 services
+
+trade-access.ts owns explicit TradeProjectAccess and record scopes; trade-projections.ts defines the independent allowlisted DTO boundary. trade-workflows.ts owns receipt evidence, schedule responses, instructions and deficiencies. trade-messages.ts reuses audience-scoped messaging with exact trade Contact identity. trade-uploads.ts uses existing protected storage and content validation. trade-api.ts dispatches external trade and internal management routes. External identities have no internal capability escape through mixed roles or overrides. No new financial ledger is introduced. See TRADE_PORTAL.md, SITE_INSTRUCTIONS.md and DEFICIENCIES.md.
+
+## Phase 7 QuickBooks boundary
+
+`src/lib/quickbooks/` isolates SOAP/XML, QWC, configuration/mapping, persistent engine, request construction and reconciliation from financial.ts. The SOAP route uses independent connector credentials/tickets. Browser accounting administration requires explicit capabilities; client/trade DTOs never include accounting configuration. PostgreSQL owns connector state and existing ActualCost/Commitment tables remain reporting truth. See [QuickBooks Desktop](QUICKBOOKS_DESKTOP.md).

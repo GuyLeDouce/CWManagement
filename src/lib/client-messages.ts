@@ -31,7 +31,7 @@ export async function conversations(actor: Actor, projectId: string) {
                 },
               ],
             }
-          : {}),
+          : { audience: { not: 'TRADE' as const } }),
       },
       select: {
         id: true,
@@ -77,7 +77,11 @@ export async function sendProjectMessage(actor: Actor, input: z.infer<typeof mes
     const grant = await authorize(actor, input.projectId, true, tx);
     let thread = input.conversationId
       ? await tx.conversation.findFirst({
-          where: { id: input.conversationId, projectId: input.projectId },
+          where: {
+            id: input.conversationId,
+            projectId: input.projectId,
+            audience: { not: 'TRADE' },
+          },
         })
       : null;
     if (input.conversationId)
@@ -148,7 +152,11 @@ export async function readConversation(actor: Actor, projectId: string, id: stri
   return transaction(async (tx) => {
     const grant = await authorize(actor, projectId, false, tx);
     const thread = await tx.conversation.findFirst({
-      where: { id, projectId, ...(grant ? { audience: 'CLIENT' as const } : {}) },
+      where: {
+        id,
+        projectId,
+        ...(grant ? { audience: 'CLIENT' as const } : { audience: { not: 'TRADE' as const } }),
+      },
     });
     ensure(thread, 'Conversation not found.', 404);
     if (grant && thread.changeOrderRevisionId)

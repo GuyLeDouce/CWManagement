@@ -1,6 +1,7 @@
 import { Capability, Prisma, Role, User } from '@prisma/client';
 import { AppError, ensure } from './errors';
 import { db, Tx } from './db';
+import { isExternal } from './external-identity';
 export type Actor = User;
 export function has(user: Pick<User, 'roles'>, ...roles: Role[]) {
   return roles.some((role) => user.roles.includes(role));
@@ -28,6 +29,11 @@ const roleCapabilities: Partial<Record<Role, Capability[]>> = {
     'COST_CODE_MANAGE',
   ],
   CONTROLLER: [
+    'QUICKBOOKS_VIEW',
+    'QUICKBOOKS_CONFIGURE',
+    'QUICKBOOKS_MAP',
+    'QUICKBOOKS_QUEUE',
+    'QUICKBOOKS_RECONCILE',
     'PROJECT_VIEW_ALL',
     'PROJECT_EDIT',
     'PROJECT_ASSIGN',
@@ -127,8 +133,8 @@ const roleCapabilities: Partial<Record<Role, Capability[]>> = {
     'TIME_CLOCK',
   ],
   CLIENT: ['CLIENT_PORTAL_ACCESS'],
-  SUBTRADE: ['PROJECT_VIEW_ASSIGNED'],
-  VENDOR: ['PROJECT_VIEW_ASSIGNED'],
+  SUBTRADE: [],
+  VENDOR: [],
 };
 const purchasingOperations: Capability[] = [
   'PURCHASE_ORDER_VIEW',
@@ -177,11 +183,28 @@ const portalManagement: Capability[] = [
 for (const role of ['ADMIN', 'CONTROLLER', 'PM', 'PROJECT_MANAGER'] as Role[])
   roleCapabilities[role]!.push(...portalManagement);
 roleCapabilities.ESTIMATOR!.push('SELECTION_VIEW', 'SELECTION_CREATE', 'SELECTION_EDIT');
+const tradeManagement: Capability[] = [
+  'TRADE_ACCESS_MANAGE',
+  'TRADE_CONTENT_PUBLISH',
+  'SITE_INSTRUCTION_VIEW',
+  'SITE_INSTRUCTION_CREATE',
+  'SITE_INSTRUCTION_ISSUE',
+  'DEFICIENCY_VIEW',
+  'DEFICIENCY_CREATE',
+  'DEFICIENCY_ASSIGN',
+  'DEFICIENCY_VERIFY',
+  'TRADE_MESSAGE_VIEW',
+  'TRADE_MESSAGE_SEND',
+];
+for (const role of ['PM', 'PROJECT_MANAGER', 'CONTROLLER'] as Role[])
+  roleCapabilities[role]!.push(...tradeManagement);
 export function roleGrants(user: Pick<User, 'roles'>, capability: Capability) {
+  if (isExternal(user) && (user.roles.length !== 1 || user.roles[0] !== 'CLIENT')) return false;
   if (user.roles.includes('CLIENT')) return capability === 'CLIENT_PORTAL_ACCESS';
   return user.roles.some((role) => roleCapabilities[role]?.includes(capability));
 }
 export async function can(user: Actor, capability: Capability, tx: Tx = db) {
+  if (isExternal(user) && (user.roles.length !== 1 || user.roles[0] !== 'CLIENT')) return false;
   if (user.roles.includes('CLIENT')) return capability === 'CLIENT_PORTAL_ACCESS' && user.active;
   const override = await tx.userCapability.findUnique({
     where: { userId_capability: { userId: user.id, capability } },
@@ -192,6 +215,8 @@ export async function requireCapability(user: Actor, capability: Capability, tx:
   ensure(await can(user, capability, tx), 'You do not have permission to do this.', 403);
 }
 export async function capabilities(user: Actor, tx: Tx = db) {
+  if (isExternal(user) && (user.roles.length !== 1 || user.roles[0] !== 'CLIENT'))
+    return [] as Capability[];
   if (user.roles.includes('CLIENT')) return ['CLIENT_PORTAL_ACCESS'] as Capability[];
   const overrides = await tx.userCapability.findMany({ where: { userId: user.id } });
   return Object.values(Capability).filter((capability) => {

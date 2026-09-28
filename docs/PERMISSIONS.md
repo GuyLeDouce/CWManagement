@@ -20,7 +20,7 @@ Restricted: `CLIENT_PORTAL_ACCESS`, `ACCOUNTING_ACCESS`, `SETTINGS_MANAGE`.
 
 ## Scope
 
-`PROJECT_VIEW_ASSIGNED` requires a ProjectAssignment or retained legacy time assignment. Clients instead require explicit ClientProjectAccess linked to their Contact. Trade authorization remains deferred. Financial, payroll, internal-note and cross-project fields must never enter portal DTOs.
+`PROJECT_VIEW_ASSIGNED` requires a ProjectAssignment or retained legacy time assignment. Clients instead require explicit ClientProjectAccess linked to their Contact. Trades require explicit TradeProjectAccess and Contact-scoped record authorization. Financial, payroll, internal-note and cross-project fields must never enter portal DTOs.
 
 Internal operations check capabilities and requireProjectAccess. Notifications are restricted by userId. Internal downloads require FILE_VIEW_INTERNAL and project scope; client downloads require an active portal grant and CLIENT visibility. UI checks are never the authorization boundary.
 
@@ -45,3 +45,13 @@ CLIENT is a separate restricted identity: no internal capability can be granted 
 PO and WO independently use `PURCHASE_ORDER_*` and `WORK_ORDER_*` VIEW/CREATE/EDIT/APPROVE/ISSUE capabilities. CO uses CHANGE_ORDER_VIEW/CREATE/EDIT/APPROVE_INTERNAL/ISSUE/ACCEPT. Ledgers use COMMITMENT_VIEW, COMMITMENT_MANAGE and ACTUAL_COST_RECONCILE in addition to existing ACTUAL_COST_VIEW/MANAGE. Reversal requires ACTUAL_COST_RECONCILE plus project access and a reason. Cancelling an issued purchasing family requires its APPROVE capability and COMMITMENT_MANAGE. Attachment selection additionally requires FILE_VIEW_INTERNAL.
 
 Owner has all. Controller has full purchasing/CO approval and ledger reconciliation. PM/PROJECT_MANAGER has assigned-project PO/WO/CO view/create/edit and commitment view, but no default issuing/approval/acceptance or reconciliation. Estimator has CO view/create/edit/internal approval. Office gains no default financial powers; targeted overrides can grant limited operations. Field, Shop, Client, Subtrade and Vendor gain no purchasing capabilities. Grants/denials continue to override role bundles; every service enforces project scope. Generic activity omits financial audit payloads, and project DTOs hide baseline contract from readers without PROJECT_FINANCIALS_VIEW.
+
+## Phase 6 trade boundary
+
+SUBTRADE/VENDOR have zero internal capabilities, including when an override or mixed external role would otherwise grant them. Portal access requires exactly one compatible external role, a deliberately linked active Contact, active project/company and explicit active TradeProjectAccess. Project access is necessary but record-level Contact scope is also mandatory. Company membership grants no additional visibility. Client and trade route guards and dispatchers reject the other identity.
+
+Internal capabilities: TRADE_ACCESS_MANAGE, TRADE_CONTENT_PUBLISH, SITE_INSTRUCTION_VIEW/CREATE/ISSUE, DEFICIENCY_VIEW/CREATE/ASSIGN/VERIFY, TRADE_MESSAGE_VIEW/SEND. OWNER receives all; PM/PROJECT_MANAGER and CONTROLLER receive this operational bundle subject to existing project scope. ADMIN/OFFICE/FIELD receive no new bundle by default; explicit internal overrides may be configured. Purchasing visibility and issue/approval retain their separate Phase 4 capabilities. Internal Trades sections enforce their own read capabilities. External actions use dedicated grant/record authorization, never internal capability bundles.
+
+## Phase 7 accounting capabilities
+
+QUICKBOOKS_VIEW, QUICKBOOKS_CONFIGURE, QUICKBOOKS_MAP, QUICKBOOKS_QUEUE and QUICKBOOKS_RECONCILE are bundled for OWNER and CONTROLLER. Internal overrides remain available; CLIENT/SUBTRADE/VENDOR identities cannot gain internal capabilities. Browser APIs enforce capabilities and the existing origin boundary. SOAP uses independent credentials and expiring tickets, never browser cookies. Bill application also requires ACTUAL_COST_RECONCILE and existing project access.

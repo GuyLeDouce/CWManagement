@@ -1,3 +1,5 @@
+import { ensureTradeFileMutable } from './trade-access';
+import { tradeNotice, deliverPortalNotices } from './trade-notices';
 import {
   DependencyType,
   FileKind,
@@ -321,7 +323,9 @@ async function ensureNoDependencyCycle(
 
 export async function saveProjectTask(actor: Actor, input: z.infer<typeof projectTaskSchema>) {
   await requireCapability(actor, 'PROJECT_SCHEDULE_EDIT');
-  return transaction(async (tx) => {
+  const notices: string[] = [];
+  const result = await transaction(async (tx) => {
+    notices.length = 0;
     const project = await requireProjectAccess(actor, input.projectId, tx);
     const before = input.id
       ? await tx.projectTask.findFirst({ where: { id: input.id, projectId: input.projectId } })
@@ -381,8 +385,22 @@ export async function saveProjectTask(actor: Actor, input: z.infer<typeof projec
         entityType: 'ProjectTask',
         entityId: task.id,
       });
+    const releases = await tx.tradeTaskRelease.findMany({
+      where: { taskId: task.id },
+      select: { contactId: true },
+    });
+    notices.push(
+      ...(await tradeNotice(
+        tx,
+        project.id,
+        [...new Set([...contactIds, ...releases.map((r) => r.contactId)])],
+        'Your assigned project schedule has been updated.',
+      )),
+    );
     return task;
   });
+  await deliverPortalNotices(notices);
+  return result;
 }
 
 export async function actOnProjectTask(actor: Actor, input: z.infer<typeof taskActionSchema>) {
@@ -474,6 +492,7 @@ export async function archiveFile(actor: Actor, input: z.infer<typeof fileAction
       where: { id: input.id, projectId: input.projectId, archivedAt: null },
     });
     ensure(before, 'File not found.', 404);
+    await ensureTradeFileMutable(tx, before.id);
     if (before.visibility === 'CLIENT') {
       await requireCapability(actor, 'CLIENT_CONTENT_PUBLISH', tx);
       ensure(

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 export async function api<T>(path: string, body?: unknown): Promise<T> {
   if (body !== undefined && !navigator.onLine)
-    throw new Error('Internet connection required to record time.');
+    throw new Error('Internet connection required to submit this action.');
   let response: Response;
   try {
     response = await fetch(`/api/${path}`, {

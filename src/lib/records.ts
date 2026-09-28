@@ -1,3 +1,4 @@
+import { changedTime } from './quickbooks/state';
 import { z } from 'zod';
 import { DateTime } from 'luxon';
 import { TimeSegment } from '@prisma/client';
@@ -140,6 +141,7 @@ export async function editRecord(actor: Actor, input: z.infer<typeof editSchema>
       where: { id: input.id },
       data: { ...changes, workDayId, status: 'PENDING_PM_APPROVAL', version: { increment: 1 } },
     });
+    await changedTime(tx, updated.id);
     await audit(
       tx,
       actor.id,

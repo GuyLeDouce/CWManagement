@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
     );
     await requireProjectAccess(actor, input.projectId);
     if (input.visibility === 'CLIENT') await requireCapability(actor, 'CLIENT_CONTENT_PUBLISH');
+    if (input.visibility === 'TRADE') await requireCapability(actor, 'TRADE_CONTENT_PUBLISH');
     const file = form.get('file');
     ensure(file instanceof File, 'Choose a file to upload.');
     ensure(

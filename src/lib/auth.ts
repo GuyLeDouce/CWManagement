@@ -1,3 +1,4 @@
+import { isTrade } from './external-identity';
 import { cookies } from 'next/headers';
 import { db, transaction, databaseNow, audit } from './db';
 import { digest, privateKey, randomToken, hashPassword, verifyPassword } from './crypto';
@@ -38,6 +39,11 @@ export async function login(email: string, password: string) {
   await db.session.create({ data: { userId: user.id, tokenHash: digest(token), expiresAt } });
   if (user.roles.length === 1 && user.roles[0] === 'CLIENT')
     await db.clientProjectAccess.updateMany({
+      where: { userId: user.id, active: true, revokedAt: null, acceptedAt: null },
+      data: { acceptedAt: new Date() },
+    });
+  if (isTrade(user))
+    await db.tradeProjectAccess.updateMany({
       where: { userId: user.id, active: true, revokedAt: null, acceptedAt: null },
       data: { acceptedAt: new Date() },
     });

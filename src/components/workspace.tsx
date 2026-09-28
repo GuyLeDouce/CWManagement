@@ -43,6 +43,7 @@ import {
 } from './management';
 import { NotificationScreen } from './notifications';
 import { FinancialsScreen } from './financials';
+import { QuickBooksScreen } from './quickbooks';
 const items = [
   { view: '', label: 'Dashboard', icon: LayoutDashboard },
   { view: 'leads', label: 'Leads', icon: UserRoundSearch },
@@ -86,6 +87,7 @@ export function Workspace({ path }: { path: string[] }) {
           'PURCHASE_ORDER_VIEW',
           'WORK_ORDER_VIEW',
           'CHANGE_ORDER_VIEW',
+          'QUICKBOOKS_VIEW',
         )) ||
       (i.view === 'contacts' && cap('CONTACT_MANAGE')) ||
       (i.view === 'locate' && cap('TIME_APPROVE', 'ACCOUNTING_ACCESS')) ||
@@ -96,7 +98,10 @@ export function Workspace({ path }: { path: string[] }) {
   );
   if (!managementUser) visible.unshift({ view: 'time', label: 'Time', icon: Clock3 });
   const management = visible.length > 1;
-  const permitted = visible.some((i) => i.view === view) || (!managementUser && view === '');
+  const permitted =
+    visible.some((i) => i.view === view) ||
+    (view === 'settings' && path[1] === 'quickbooks' && cap('QUICKBOOKS_VIEW')) ||
+    (!managementUser && view === '');
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -201,6 +206,8 @@ export function Workspace({ path }: { path: string[] }) {
             <ContactsScreen />
           ) : view === 'notifications' ? (
             <NotificationScreen />
+          ) : (view === 'financials' || view === 'settings') && path[1] === 'quickbooks' ? (
+            <QuickBooksScreen />
           ) : view === 'financials' ? (
             <FinancialsScreen />
           ) : ['leads', 'schedule', 'reports'].includes(view) ? (

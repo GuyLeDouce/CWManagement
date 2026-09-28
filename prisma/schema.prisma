@@ -41,40 +41,44 @@ model PurchasingDocument {
 }
 
 model PurchasingRevision {
-  id                    String               @id @default(cuid())
+  tradeAcknowledgements TradeAcknowledgement[]
+  siteInstructions      SiteInstruction[]
+  tradeFiles            StoredFile[]
+  tradeConversations    Conversation[]
+  id                    String                 @id @default(cuid())
   documentId            String
   revision              Int
-  version               Int                  @default(1)
-  status                PurchasingStatus     @default(DRAFT)
+  version               Int                    @default(1)
+  status                PurchasingStatus       @default(DRAFT)
   vendorContactId       String
   billingContactId      String?
   changeOrderRevisionId String?
   scheduleTaskId        String?
-  attachmentIds         String[]             @default([])
+  attachmentIds         String[]               @default([])
   title                 String
   scope                 String?
   terms                 String?
   internalNotes         String?
   vendorNotes           String?
-  expectedDate          DateTime?            @db.Date
-  taxRate               Decimal              @db.Decimal(7, 6)
+  expectedDate          DateTime?              @db.Date
+  taxRate               Decimal                @db.Decimal(7, 6)
   snapshot              Json?
-  subtotal              Decimal              @default(0) @db.Decimal(18, 2)
-  taxAmount             Decimal              @default(0) @db.Decimal(18, 2)
-  total                 Decimal              @default(0) @db.Decimal(18, 2)
+  subtotal              Decimal                @default(0) @db.Decimal(18, 2)
+  taxAmount             Decimal                @default(0) @db.Decimal(18, 2)
+  total                 Decimal                @default(0) @db.Decimal(18, 2)
   createdById           String
   approvedById          String?
   issuedById            String?
-  approvedAt            DateTime?            @db.Timestamptz(3)
-  issuedAt              DateTime?            @db.Timestamptz(3)
-  acknowledgedAt        DateTime?            @db.Timestamptz(3)
-  createdAt             DateTime             @default(now()) @db.Timestamptz(3)
-  updatedAt             DateTime             @updatedAt @db.Timestamptz(3)
-  document              PurchasingDocument   @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  vendorContact         Contact              @relation("PurchasingVendor", fields: [vendorContactId], references: [id], onDelete: Restrict)
-  billingContact        Contact?             @relation("PurchasingBilling", fields: [billingContactId], references: [id], onDelete: Restrict)
-  changeOrderRevision   ChangeOrderRevision? @relation(fields: [changeOrderRevisionId], references: [id], onDelete: Restrict)
-  scheduleTask          ProjectTask?         @relation(fields: [scheduleTaskId], references: [id], onDelete: Restrict)
+  approvedAt            DateTime?              @db.Timestamptz(3)
+  issuedAt              DateTime?              @db.Timestamptz(3)
+  acknowledgedAt        DateTime?              @db.Timestamptz(3)
+  createdAt             DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime               @updatedAt @db.Timestamptz(3)
+  document              PurchasingDocument     @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  vendorContact         Contact                @relation("PurchasingVendor", fields: [vendorContactId], references: [id], onDelete: Restrict)
+  billingContact        Contact?               @relation("PurchasingBilling", fields: [billingContactId], references: [id], onDelete: Restrict)
+  changeOrderRevision   ChangeOrderRevision?   @relation(fields: [changeOrderRevisionId], references: [id], onDelete: Restrict)
+  scheduleTask          ProjectTask?           @relation(fields: [scheduleTaskId], references: [id], onDelete: Restrict)
   lines                 PurchasingLine[]
 
   @@unique([documentId, revision])
@@ -223,6 +227,22 @@ enum Role {
 }
 
 enum Capability {
+  QUICKBOOKS_VIEW
+  QUICKBOOKS_CONFIGURE
+  QUICKBOOKS_MAP
+  QUICKBOOKS_QUEUE
+  QUICKBOOKS_RECONCILE
+  TRADE_ACCESS_MANAGE
+  TRADE_CONTENT_PUBLISH
+  SITE_INSTRUCTION_VIEW
+  SITE_INSTRUCTION_CREATE
+  SITE_INSTRUCTION_ISSUE
+  DEFICIENCY_VIEW
+  DEFICIENCY_CREATE
+  DEFICIENCY_ASSIGN
+  DEFICIENCY_VERIFY
+  TRADE_MESSAGE_VIEW
+  TRADE_MESSAGE_SEND
   CLIENT_ACCESS_MANAGE
   CLIENT_CONTENT_PUBLISH
   SELECTION_VIEW
@@ -492,29 +512,32 @@ enum TokenPurpose {
 }
 
 model User {
+  tradeAccess                TradeProjectAccess[]
+  tradeAcknowledgements      TradeAcknowledgement[]
+  tradeScheduleResponses     TradeScheduleResponse[]
   portalContact              Contact?
   portalAccess               ClientProjectAccess[]
   selectionDecisions         SelectionDecision[]
   clientApprovals            ClientApproval[]
   clientMessages             ProjectMessage[]
   conversationReads          ConversationRead[]
-  id                         String                @id @default(cuid())
+  id                         String                  @id @default(cuid())
   firstName                  String
   lastName                   String
-  email                      String                @unique
+  email                      String                  @unique
   passwordHash               String?
-  active                     Boolean               @default(true)
+  active                     Boolean                 @default(true)
   roles                      Role[]
-  earliestStart              String                @default("07:00")
+  earliestStart              String                  @default("07:00")
   timezone                   String?
-  createdAt                  DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt                  DateTime              @updatedAt @db.Timestamptz(3)
+  createdAt                  DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime                @updatedAt @db.Timestamptz(3)
   sessions                   Session[]
   tokens                     ActionToken[]
   jobs                       EmployeeJobsite[]
   tasks                      EmployeeTask[]
-  managedEmployees           PmEmployee[]          @relation("Manager")
-  managers                   PmEmployee[]          @relation("Employee")
+  managedEmployees           PmEmployee[]            @relation("Manager")
+  managers                   PmEmployee[]            @relation("Employee")
   managedJobs                PmJobsite[]
   workDays                   WorkDay[]
   segments                   TimeSegment[]
@@ -526,17 +549,17 @@ model User {
   employee                   Employee?
   capabilities               UserCapability[]
   projectAssignments         ProjectAssignment[]
-  createdProjectTasks        ProjectTask[]         @relation("ProjectTaskCreator")
+  createdProjectTasks        ProjectTask[]           @relation("ProjectTaskCreator")
   projectTaskAssignments     ProjectTaskAssignee[]
   dailyLogs                  DailyLog[]
   uploadedFiles              StoredFile[]
   notifications              Notification[]
-  estimatesCreated           EstimateRevision[]    @relation("EstimateRevisionCreator")
-  proposalsCreated           ProposalRevision[]    @relation("ProposalRevisionCreator")
-  proposalsAccepted          ProposalRevision[]    @relation("ProposalRevisionAcceptor")
-  budgetVersionsCreated      BudgetVersion[]       @relation("BudgetVersionCreator")
-  actualCostsCreated         ActualCost[]          @relation("ActualCostCreator")
-  forecastAdjustmentsCreated ForecastAdjustment[]  @relation("ForecastAdjustmentCreator")
+  estimatesCreated           EstimateRevision[]      @relation("EstimateRevisionCreator")
+  proposalsCreated           ProposalRevision[]      @relation("ProposalRevisionCreator")
+  proposalsAccepted          ProposalRevision[]      @relation("ProposalRevisionAcceptor")
+  budgetVersionsCreated      BudgetVersion[]         @relation("BudgetVersionCreator")
+  actualCostsCreated         ActualCost[]            @relation("ActualCostCreator")
+  forecastAdjustmentsCreated ForecastAdjustment[]    @relation("ForecastAdjustmentCreator")
 }
 
 model Employee {
@@ -597,6 +620,10 @@ model PmJobsite {
 }
 
 model Project {
+  tradeAccess            TradeProjectAccess[]
+  siteInstructions       SiteInstruction[]
+  deficiencies           Deficiency[]
+  tradeAcknowledgements  TradeAcknowledgement[]
   portalAccess           ClientProjectAccess[]
   allowances             Allowance[]
   selections             Selection[]
@@ -686,34 +713,43 @@ model Company {
 }
 
 model Contact {
-  selectionOptions     SelectionOption[]
-  portalUser           User?                 @relation(fields: [portalUserId], references: [id], onDelete: Restrict)
-  portalAccess         ClientProjectAccess[]
-  purchasingRevisions  PurchasingRevision[]  @relation("PurchasingVendor")
-  billingRevisions     PurchasingRevision[]  @relation("PurchasingBilling")
-  changeOrderRevisions ChangeOrderRevision[]
-  id                   String                @id @default(cuid())
-  firstName            String
-  lastName             String
-  companyId            String?
-  email                String?
-  phone                String?
-  address              String?
-  municipality         String?
-  province             String?
-  postalCode           String?
-  notes                String?
-  types                ContactType[]
-  active               Boolean               @default(true)
-  portalUserId         String?               @unique
-  company              Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  projects             ProjectContact[]
-  taskAssignments      ProjectTaskAssignee[]
-  proposals            ProposalRevision[]
-  commitments          Commitment[]
-  actualCosts          ActualCost[]
-  createdAt            DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime              @updatedAt @db.Timestamptz(3)
+  tradeAccess            TradeProjectAccess[]
+  tradeAcknowledgements  TradeAcknowledgement[]
+  tradeTaskReleases      TradeTaskRelease[]
+  tradeScheduleResponses TradeScheduleResponse[]
+  tradeFileShares        TradeFileShare[]
+  tradeUploads           StoredFile[]
+  instructionRecipients  SiteInstructionRecipient[]
+  deficiencies           Deficiency[]
+  tradeConversations     Conversation[]
+  selectionOptions       SelectionOption[]
+  portalUser             User?                      @relation(fields: [portalUserId], references: [id], onDelete: Restrict)
+  portalAccess           ClientProjectAccess[]
+  purchasingRevisions    PurchasingRevision[]       @relation("PurchasingVendor")
+  billingRevisions       PurchasingRevision[]       @relation("PurchasingBilling")
+  changeOrderRevisions   ChangeOrderRevision[]
+  id                     String                     @id @default(cuid())
+  firstName              String
+  lastName               String
+  companyId              String?
+  email                  String?
+  phone                  String?
+  address                String?
+  municipality           String?
+  province               String?
+  postalCode             String?
+  notes                  String?
+  types                  ContactType[]
+  active                 Boolean                    @default(true)
+  portalUserId           String?                    @unique
+  company                Company?                   @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  projects               ProjectContact[]
+  taskAssignments        ProjectTaskAssignee[]
+  proposals              ProposalRevision[]
+  commitments            Commitment[]
+  actualCosts            ActualCost[]
+  createdAt              DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime                   @updatedAt @db.Timestamptz(3)
 
   @@index([lastName, firstName])
   @@index([companyId])
@@ -732,25 +768,232 @@ model ProjectContact {
 }
 
 model AccountingSyncMapping {
-  id               String        @id @default(cuid())
-  entityType       String
-  entityId         String
-  quickBooksListId String?
-  quickBooksTxnId  String?
-  direction        SyncDirection @default(BIDIRECTIONAL)
-  status           SyncStatus    @default(NOT_SYNCED)
-  lastSyncedAt     DateTime?     @db.Timestamptz(3)
-  lastError        String?
-  projectId        String?
-  project          Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
+  connectionId           String?
+  connection             QuickBooksConnection? @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  quickBooksEditSequence String?
+  quickBooksFullName     String?
+  quickBooksType         String?
+  lastSeenInQuickBooksAt DateTime?             @db.Timestamptz(3)
+  syncHash               String?
+  sourceVersion          Int?
+  enabled                Boolean               @default(true)
+  metadata               Json?
+  id                     String                @id @default(cuid())
+  entityType             String
+  entityId               String
+  quickBooksListId       String?
+  quickBooksTxnId        String?
+  direction              SyncDirection         @default(BIDIRECTIONAL)
+  status                 SyncStatus            @default(NOT_SYNCED)
+  lastSyncedAt           DateTime?             @db.Timestamptz(3)
+  lastError              String?
+  projectId              String?
+  project                Project?              @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  createdAt              DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime              @updatedAt @db.Timestamptz(3)
 
-  @@unique([entityType, entityId])
+  @@unique([connectionId, entityType, entityId])
+  @@unique([connectionId, entityType, quickBooksListId])
+  @@unique([connectionId, entityType, quickBooksTxnId])
   @@index([status])
 }
 
+enum QuickBooksMode {
+  DISCOVERY
+  ACTIVE
+}
+
+enum QuickBooksJobStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCEEDED
+  BLOCKED
+  FAILED
+  RECONCILIATION_REQUIRED
+  CANCELLED
+}
+
+model QuickBooksConnection {
+  id                   String                  @id @default(cuid())
+  name                 String
+  username             String                  @unique
+  passwordHash         String
+  ownerGuid            String                  @unique
+  fileGuid             String                  @unique
+  active               Boolean                 @default(true)
+  syncEnabled          Boolean                 @default(true)
+  mode                 QuickBooksMode          @default(DISCOVERY)
+  intervalMinutes      Int                     @default(30)
+  companyFileName      String?
+  companyName          String?
+  companyHash          String?
+  boundCompanyHash     String?                 @unique
+  companyMismatch      Boolean                 @default(false)
+  country              String?
+  qbXmlVersion         String?
+  lastCallback         String?
+  lastConnectedAt      DateTime?               @db.Timestamptz(3)
+  lastAuthenticatedAt  DateTime?               @db.Timestamptz(3)
+  lastSuccessfulSyncAt DateTime?               @db.Timestamptz(3)
+  lastErrorAt          DateTime?               @db.Timestamptz(3)
+  lastError            String?
+  importStartDate      DateTime?               @db.Date
+  billCursor           DateTime?               @db.Timestamptz(3)
+  actorId              String
+  createdAt            DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                @updatedAt @db.Timestamptz(3)
+  mappings             AccountingSyncMapping[]
+  candidates           QuickBooksCandidate[]
+  sessions             QuickBooksSyncSession[]
+  runs                 QuickBooksSyncRun[]
+  jobs                 QuickBooksSyncJob[]
+  issues               QuickBooksSyncIssue[]
+  imports              QuickBooksBillMirror[]
+}
+
+model QuickBooksCandidate {
+  id           String               @id @default(cuid())
+  connectionId String
+  connection   QuickBooksConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  type         String
+  listId       String
+  fullName     String
+  editSequence String?
+  subtype      String?
+  active       Boolean              @default(true)
+  lastSeenAt   DateTime             @default(now()) @db.Timestamptz(3)
+
+  @@unique([connectionId, type, listId])
+}
+
+model QuickBooksSyncRun {
+  id           String                 @id @default(cuid())
+  connectionId String
+  connection   QuickBooksConnection   @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  startedAt    DateTime               @default(now()) @db.Timestamptz(3)
+  completedAt  DateTime?              @db.Timestamptz(3)
+  status       String                 @default("RUNNING")
+  requestsSent Int                    @default(0)
+  succeeded    Int                    @default(0)
+  failed       Int                    @default(0)
+  queued       Int                    @default(0)
+  companyName  String?
+  qbXmlVersion String?
+  error        String?
+  session      QuickBooksSyncSession?
+}
+
+model QuickBooksSyncSession {
+  id               String               @id @default(cuid())
+  tokenHash        String               @unique
+  connectionId     String
+  connection       QuickBooksConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  runId            String               @unique
+  run              QuickBooksSyncRun    @relation(fields: [runId], references: [id], onDelete: Restrict)
+  expiresAt        DateTime             @db.Timestamptz(3)
+  lastActivityAt   DateTime             @default(now()) @db.Timestamptz(3)
+  completedAt      DateTime?            @db.Timestamptz(3)
+  companyVerified  Boolean              @default(false)
+  companyFileName  String?
+  currentRequestId String?
+  lastError        String?
+  requests         QuickBooksRequest[]
+  jobs             QuickBooksSyncJob[]
+
+  @@index([connectionId, expiresAt])
+}
+
+model QuickBooksSyncJob {
+  id           String                 @id @default(cuid())
+  connectionId String
+  connection   QuickBooksConnection   @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  entityType   String
+  entityId     String?
+  operation    String
+  direction    SyncDirection
+  requestKey   String                 @unique
+  priority     Int                    @default(0)
+  status       QuickBooksJobStatus    @default(PENDING)
+  attempts     Int                    @default(0)
+  availableAt  DateTime               @default(now()) @db.Timestamptz(3)
+  startedAt    DateTime?              @db.Timestamptz(3)
+  completedAt  DateTime?              @db.Timestamptz(3)
+  sessionId    String?
+  session      QuickBooksSyncSession? @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  phase        String                 @default("INITIAL")
+  payload      Json?
+  lastError    String?
+  actorId      String
+  createdAt    DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime               @updatedAt @db.Timestamptz(3)
+  requests     QuickBooksRequest[]
+  issues       QuickBooksSyncIssue[]
+
+  @@index([connectionId, status, availableAt, priority])
+}
+
+model QuickBooksRequest {
+  id           String                @id @default(cuid())
+  jobId        String
+  job          QuickBooksSyncJob     @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  sessionId    String
+  session      QuickBooksSyncSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  operation    String
+  data         Json
+  isWrite      Boolean
+  responseHash String?
+  percent      Int?
+  createdAt    DateTime              @default(now()) @db.Timestamptz(3)
+  completedAt  DateTime?             @db.Timestamptz(3)
+
+  @@index([sessionId, completedAt])
+}
+
+model QuickBooksSyncIssue {
+  id           String               @id @default(cuid())
+  connectionId String
+  connection   QuickBooksConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  jobId        String?
+  job          QuickBooksSyncJob?   @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  key          String               @unique
+  code         String
+  message      String
+  qbStatusCode String?
+  retryable    Boolean              @default(false)
+  occurredAt   DateTime             @default(now()) @db.Timestamptz(3)
+  resolvedAt   DateTime?            @db.Timestamptz(3)
+  resolvedById String?
+  resolution   String?
+
+  @@index([connectionId, resolvedAt])
+}
+
+// Reconciliation staging only. Reporting always reads normalized ActualCost.
+model QuickBooksBillMirror {
+  id           String               @id @default(cuid())
+  connectionId String
+  connection   QuickBooksConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  txnId        String
+  editSequence String
+  contentHash  String
+  payload      Json
+  appliedHash  String?
+  status       String               @default("REVIEW")
+  lastError    String?
+  lineLinks    Json?
+  observedAt   DateTime             @default(now()) @db.Timestamptz(3)
+  appliedAt    DateTime?            @db.Timestamptz(3)
+
+  @@unique([connectionId, txnId])
+}
+
 model ProjectTask {
+  tradeTitle          String?
+  tradeDescription    String?
+  tradeReleases       TradeTaskRelease[]
+  tradeResponses      TradeScheduleResponse[]
+  siteInstructions    SiteInstruction[]
+  deficiencies        Deficiency[]
   clientVisible       Boolean                 @default(false)
   clientTitle         String?
   clientDescription   String?
@@ -834,25 +1077,36 @@ model DailyLog {
 }
 
 model StoredFile {
-  id               String         @id @default(cuid())
-  projectId        String
-  uploaderId       String
-  dailyLogId       String?
-  kind             FileKind
-  category         FileCategory   @default(OTHER)
-  visibility       FileVisibility @default(INTERNAL)
-  filename         String
-  originalFilename String
-  mimeType         String
-  size             BigInt
-  storageKey       String         @unique
-  description      String?
-  caption          String?
-  uploadedAt       DateTime       @default(now()) @db.Timestamptz(3)
-  archivedAt       DateTime?      @db.Timestamptz(3)
-  project          Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  uploader         User           @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
-  dailyLog         DailyLog?      @relation(fields: [dailyLogId], references: [id], onDelete: SetNull)
+  origin                    FileOrigin          @default(STAFF)
+  revisionLabel             String?
+  tradeUploaderContactId    String?
+  tradePurchasingRevisionId String?
+  siteInstructionId         String?
+  deficiencyId              String?
+  tradeUploader             Contact?            @relation(fields: [tradeUploaderContactId], references: [id], onDelete: Restrict)
+  tradePurchasingRevision   PurchasingRevision? @relation(fields: [tradePurchasingRevisionId], references: [id], onDelete: Restrict)
+  siteInstruction           SiteInstruction?    @relation(fields: [siteInstructionId], references: [id], onDelete: Restrict)
+  deficiency                Deficiency?         @relation(fields: [deficiencyId], references: [id], onDelete: Restrict)
+  tradeShares               TradeFileShare[]
+  id                        String              @id @default(cuid())
+  projectId                 String
+  uploaderId                String
+  dailyLogId                String?
+  kind                      FileKind
+  category                  FileCategory        @default(OTHER)
+  visibility                FileVisibility      @default(INTERNAL)
+  filename                  String
+  originalFilename          String
+  mimeType                  String
+  size                      BigInt
+  storageKey                String              @unique
+  description               String?
+  caption                   String?
+  uploadedAt                DateTime            @default(now()) @db.Timestamptz(3)
+  archivedAt                DateTime?           @db.Timestamptz(3)
+  project                   Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  uploader                  User                @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
+  dailyLog                  DailyLog?           @relation(fields: [dailyLogId], references: [id], onDelete: SetNull)
 
   @@index([projectId, kind, uploadedAt])
   @@index([dailyLogId])
@@ -1392,26 +1646,30 @@ model ExportItem {
 }
 
 model Settings {
-  purchaseOrderPrefix     String  @default("PO")
-  nextPurchaseOrderNumber Int     @default(1)
-  workOrderPrefix         String  @default("WO")
-  nextWorkOrderNumber     Int     @default(1)
-  changeOrderPrefix       String  @default("CO")
-  nextChangeOrderNumber   Int     @default(1)
-  purchasingTerms         String  @default("")
-  changeOrderTerms        String  @default("")
-  id                      String  @id @default("company")
-  timezone                String  @default("America/Toronto")
-  reportRecipient         String  @default("")
-  weekStartsOn            Int     @default(1)
-  taxRate                 Decimal @default(0.13) @db.Decimal(7, 6)
-  estimatePrefix          String  @default("EST")
-  proposalPrefix          String  @default("P")
-  nextEstimateNumber      Int     @default(1)
-  nextProposalNumber      Int     @default(1)
-  legalName               String  @default("Cedar Winds Design~Build")
-  companyAddress          String  @default("")
-  proposalTerms           String  @default("")
+  siteInstructionPrefix     String  @default("SI-")
+  nextSiteInstructionNumber Int     @default(1)
+  deficiencyPrefix          String  @default("DEF-")
+  nextDeficiencyNumber      Int     @default(1)
+  purchaseOrderPrefix       String  @default("PO")
+  nextPurchaseOrderNumber   Int     @default(1)
+  workOrderPrefix           String  @default("WO")
+  nextWorkOrderNumber       Int     @default(1)
+  changeOrderPrefix         String  @default("CO")
+  nextChangeOrderNumber     Int     @default(1)
+  purchasingTerms           String  @default("")
+  changeOrderTerms          String  @default("")
+  id                        String  @id @default("company")
+  timezone                  String  @default("America/Toronto")
+  reportRecipient           String  @default("")
+  weekStartsOn              Int     @default(1)
+  taxRate                   Decimal @default(0.13) @db.Decimal(7, 6)
+  estimatePrefix            String  @default("EST")
+  proposalPrefix            String  @default("P")
+  nextEstimateNumber        Int     @default(1)
+  nextProposalNumber        Int     @default(1)
+  legalName                 String  @default("Cedar Winds Design~Build")
+  companyAddress            String  @default("")
+  proposalTerms             String  @default("")
 }
 
 enum SelectionStatus {
@@ -1424,6 +1682,7 @@ enum SelectionStatus {
 }
 
 enum ConversationAudience {
+  TRADE
   INTERNAL
   CLIENT
 }
@@ -1559,6 +1818,14 @@ model ClientApproval {
 }
 
 model Conversation {
+  tradeContactId        String?
+  purchasingRevisionId  String?
+  siteInstructionId     String?
+  deficiencyId          String?
+  tradeContact          Contact?             @relation(fields: [tradeContactId], references: [id], onDelete: Restrict)
+  purchasingRevision    PurchasingRevision?  @relation(fields: [purchasingRevisionId], references: [id], onDelete: Restrict)
+  siteInstruction       SiteInstruction?     @relation(fields: [siteInstructionId], references: [id], onDelete: Restrict)
+  deficiency            Deficiency?          @relation(fields: [deficiencyId], references: [id], onDelete: Restrict)
   id                    String               @id @default(cuid())
   projectId             String
   subject               String
@@ -1576,6 +1843,7 @@ model Conversation {
 }
 
 model ProjectMessage {
+  attachmentIds  String[]     @default([])
   id             String       @id @default(cuid())
   conversationId String
   authorId       String
@@ -1595,4 +1863,201 @@ model ConversationRead {
   user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@id([conversationId, userId])
+}
+
+enum FileOrigin {
+  STAFF
+  TRADE_UPLOAD
+}
+
+enum InstructionStatus {
+  DRAFT
+  ISSUED
+  ACKNOWLEDGED
+  CLOSED
+  CANCELLED
+}
+
+enum DeficiencyStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  READY_FOR_REVIEW
+  CLOSED
+  REOPENED
+  CANCELLED
+}
+
+enum TradeResponseType {
+  CONFIRMED
+  CONFLICT
+  QUESTION
+}
+
+model TradeProjectAccess {
+  id          String    @id @default(cuid())
+  projectId   String
+  userId      String
+  contactId   String
+  active      Boolean   @default(true)
+  invitedAt   DateTime  @default(now()) @db.Timestamptz(3)
+  acceptedAt  DateTime? @db.Timestamptz(3)
+  revokedAt   DateTime? @db.Timestamptz(3)
+  invitedById String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, userId])
+  @@unique([projectId, contactId])
+}
+
+model TradeTaskRelease {
+  taskId     String
+  contactId  String
+  releasedAt DateTime    @default(now()) @db.Timestamptz(3)
+  task       ProjectTask @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  contact    Contact     @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@id([taskId, contactId])
+}
+
+model TradeScheduleResponse {
+  id           String            @id @default(cuid())
+  requestId    String            @unique
+  taskId       String
+  userId       String
+  contactId    String
+  response     TradeResponseType
+  comment      String?
+  snapshot     Json
+  createdAt    DateTime          @default(now()) @db.Timestamptz(3)
+  resolvedAt   DateTime?         @db.Timestamptz(3)
+  resolvedById String?
+  resolution   String?
+  task         ProjectTask       @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  contact      Contact           @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@index([taskId, contactId])
+}
+
+model TradeFileShare {
+  fileId    String
+  contactId String
+  sharedAt  DateTime   @default(now()) @db.Timestamptz(3)
+  lockedAt  DateTime?  @db.Timestamptz(3)
+  file      StoredFile @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  contact   Contact    @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@id([fileId, contactId])
+}
+
+model SiteInstruction {
+  id                      String                     @id @default(cuid())
+  projectId               String
+  number                  String                     @unique
+  title                   String
+  description             String
+  internalNotes           String?
+  status                  InstructionStatus          @default(DRAFT)
+  version                 Int                        @default(1)
+  acknowledgementRequired Boolean                    @default(true)
+  purchasingRevisionId    String?
+  taskId                  String?
+  replacesId              String?
+  attachmentIds           String[]                   @default([])
+  snapshot                Json?
+  createdById             String
+  issuedById              String?
+  issuedAt                DateTime?                  @db.Timestamptz(3)
+  acknowledgedAt          DateTime?                  @db.Timestamptz(3)
+  createdAt               DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                   @updatedAt @db.Timestamptz(3)
+  project                 Project                    @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  purchasingRevision      PurchasingRevision?        @relation(fields: [purchasingRevisionId], references: [id], onDelete: Restrict)
+  task                    ProjectTask?               @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  replaces                SiteInstruction?           @relation("InstructionReplacement", fields: [replacesId], references: [id], onDelete: Restrict)
+  replacements            SiteInstruction[]          @relation("InstructionReplacement")
+  recipients              SiteInstructionRecipient[]
+  acknowledgements        TradeAcknowledgement[]
+  files                   StoredFile[]
+  conversations           Conversation[]
+
+  @@index([projectId, status])
+}
+
+model SiteInstructionRecipient {
+  instructionId String
+  contactId     String
+  instruction   SiteInstruction @relation(fields: [instructionId], references: [id], onDelete: Restrict)
+  contact       Contact         @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@id([instructionId, contactId])
+}
+
+model TradeAcknowledgement {
+  id                   String              @id @default(cuid())
+  projectId            String
+  purchasingRevisionId String?
+  instructionId        String?
+  userId               String
+  contactId            String
+  typedName            String
+  action               String              @default("RECEIPT_ACKNOWLEDGED")
+  snapshot             Json
+  snapshotHash         String
+  createdAt            DateTime            @default(now()) @db.Timestamptz(3)
+  project              Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  purchasingRevision   PurchasingRevision? @relation(fields: [purchasingRevisionId], references: [id], onDelete: Restrict)
+  instruction          SiteInstruction?    @relation(fields: [instructionId], references: [id], onDelete: Restrict)
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  contact              Contact             @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@unique([purchasingRevisionId, contactId])
+  @@unique([instructionId, contactId])
+}
+
+model Deficiency {
+  id                String             @id @default(cuid())
+  projectId         String
+  number            String             @unique
+  title             String
+  description       String
+  location          String?
+  priority          String             @default("NORMAL")
+  internalNotes     String?
+  assignedContactId String?
+  status            DeficiencyStatus   @default(OPEN)
+  version           Int                @default(1)
+  taskId            String?
+  dueDate           DateTime?          @db.Date
+  completedAt       DateTime?          @db.Timestamptz(3)
+  verifiedAt        DateTime?          @db.Timestamptz(3)
+  verifiedById      String?
+  createdById       String
+  attachmentIds     String[]           @default([])
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(3)
+  project           Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  assignedContact   Contact?           @relation(fields: [assignedContactId], references: [id], onDelete: Restrict)
+  task              ProjectTask?       @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  files             StoredFile[]
+  updates           DeficiencyUpdate[]
+  conversations     Conversation[]
+
+  @@index([projectId, assignedContactId, status])
+}
+
+model DeficiencyUpdate {
+  recipientContactId String?
+  id                 String           @id @default(cuid())
+  deficiencyId       String
+  actorId            String
+  status             DeficiencyStatus
+  comment            String
+  createdAt          DateTime         @default(now()) @db.Timestamptz(3)
+  deficiency         Deficiency       @relation(fields: [deficiencyId], references: [id], onDelete: Restrict)
+
+  @@index([deficiencyId, createdAt])
 }

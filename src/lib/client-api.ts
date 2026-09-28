@@ -1,3 +1,4 @@
+import { ensureTradeFileMutable } from './trade-access';
 import { z } from 'zod';
 import { Actor, requireCapability, requireProjectAccess } from './permissions';
 import { db, transaction } from './db';
@@ -154,6 +155,7 @@ export async function publishClientContent(actor: Actor, input: z.infer<typeof p
           409,
         );
       }
+      await ensureTradeFileMutable(tx, row.id);
       await tx.storedFile.update({
         where: { id: row.id },
         data: { visibility: input.visible ? 'CLIENT' : 'INTERNAL' },

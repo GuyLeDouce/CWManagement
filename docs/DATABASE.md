@@ -21,7 +21,7 @@ ProjectTask adds clientVisible/clientTitle/clientDescription; DailyLog adds clie
 - `CostCode`: hierarchical job-cost classification with type, parent, ordering, active state, and QuickBooks ListID preparation.
 - `AccountingCode`: legacy time-export code retained during transition. It is not silently merged with `CostCode`.
 - `WorkDay`, `TimeSegment`, `Approval`, and `ExportBatch`: audited timekeeping pipeline.
-- `AccountingSyncMapping`: QuickBooks IDs, direction, state, timestamps, and error metadata without implementing synchronization.
+- `AccountingSyncMapping`: QuickBooks IDs, direction, state, timestamps and error metadata; Phase 7 adds connection-scoped synchronization and reconciliation evidence.
 
 ## Project status
 
@@ -52,3 +52,13 @@ Migration `20260922211243_financial_backbone` adds financial capabilities/settin
 `PurchasingDocument`/`PurchasingRevision`/`PurchasingLine` support both purchase and work orders. `ChangeOrder`/`ChangeOrderRevision`/`ChangeOrderLine` retain client changes. `ContractAdjustment` is an immutable, uniquely sourced contract-revenue adjustment (not a second cost ledger). Purchasing commitment ownership and stable source-line keys preserve ActualCost links. BudgetVersion optionally references its accepted CO revision. ActualCost adds reversing user/reason. Company adds active state; Settings adds PO/WO/CO prefixes, counters and default terms.
 
 Migration `202609240001_purchasing_change_management` is additive. It adds PurchasingType/PurchasingStatus/ChangeOrderStatus, capability values, fields, tables, indexes, foreign keys, financial checks, immutable issued-content triggers and contract-baseline/adjustment guards. Existing Project.contractAmount values are preserved as original contract baselines. Multiple legacy active budgets are not silently consolidated; CO acceptance requires exactly one active budget. New original-budget creation refuses an existing active budget.
+
+## Phase 5 and Phase 6 portal records
+
+Phase 5 migration 202609240002_client_selections_portal adds explicit client grants, allowances/selections/options/decisions, immutable client approval, conversations/messages/read states and publishing fields. Phase 6 migration 202609240003_trade_portal adds TradeProjectAccess, TradeTaskRelease, TradeScheduleResponse, TradeFileShare, SiteInstruction/Recipient, TradeAcknowledgement, Deficiency/Update. Contact/Company remain the external identity source; no duplicate Vendor model exists.
+
+Phase 6 adds TRADE ConversationAudience, FileOrigin, InstructionStatus, DeficiencyStatus, TradeResponseType and 11 capabilities. ProjectTask gains trade-safe wording; StoredFile gains origin, revision label, uploader Contact and optional related-record references; Conversation gains trade Contact/context; ProjectMessage gains attachment IDs. Settings adds SI/deficiency number counters and prefixes. Unique receipt-source/contact and schedule request keys prevent duplicate evidence. Triggers protect receipts, issued instruction content/recipients, original schedule responses, deficiency updates, trade conversations and retained file evidence. Existing financial ledger models and money calculations are unchanged.
+
+## Phase 7 accounting records
+
+Migration `202609240004_quickbooks_desktop` adds QuickBooksConnection, QuickBooksCandidate, QuickBooksSyncSession, QuickBooksSyncRun, QuickBooksSyncJob, QuickBooksRequest, QuickBooksSyncIssue and QuickBooksBillMirror. QuickBooksMode is DISCOVERY/ACTIVE; job states distinguish BLOCKED, FAILED and RECONCILIATION_REQUIRED. Existing AccountingSyncMapping gains nullable connection, EditSequence/FullName/type, source version, enabled state and metadata. A partial unique index preserves legacy mappings. Source/ListID/TxnID uniqueness is per connection; deterministic request keys prevent duplicate jobs. Immutable request evidence and TimeSegment conflict triggers enforce accounting safety. BillMirror is staging, never a second cost ledger. ActualCost uses existing source/reversal fields.

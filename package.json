@@ -11,8 +11,8 @@
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run tests/unit.test.ts tests/email.test.ts tests/management.test.ts tests/storage.test.ts tests/financial.test.ts",
-    "test:integration": "vitest run tests/integration.test.ts tests/phase4.integration.test.ts tests/phase5.integration.test.ts",
+    "test": "vitest run tests/unit.test.ts tests/email.test.ts tests/management.test.ts tests/storage.test.ts tests/financial.test.ts tests/trade.test.ts tests/quickbooks.test.ts",
+    "test:integration": "vitest run tests/integration.test.ts tests/phase4.integration.test.ts tests/phase5.integration.test.ts tests/phase6.integration.test.ts tests/quickbooks.integration.test.ts",
     "test:e2e": "playwright test",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
@@ -21,7 +21,8 @@
     "db:owner-reset": "tsx prisma/reset-owner.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:quickbooks": "vitest run tests/quickbooks.test.ts tests/quickbooks.integration.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -29,6 +30,7 @@
   "dependencies": {
     "@prisma/client": "6.19.3",
     "csv-parse": "7.0.2",
+    "fast-xml-parser": "5.11.1",
     "lucide-react": "^0.577.0",
     "luxon": "^3.7.2",
     "next": "16.3.5",

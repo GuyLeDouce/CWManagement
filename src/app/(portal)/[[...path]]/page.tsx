@@ -1,3 +1,4 @@
+import { isExternal, portalPath } from '@/lib/external-identity';
 import { redirect } from 'next/navigation';
 import { currentUser } from '@/lib/auth';
 import { Workspace } from '@/components/workspace';
@@ -7,6 +8,6 @@ export default async function Page({ params }: { params: Promise<{ path?: string
   const user = await currentUser();
   if (!user)
     redirect(`/login?next=${encodeURIComponent('/' + path.map(encodeURIComponent).join('/'))}`);
-  if (user.roles.includes('CLIENT')) redirect('/client');
+  if (isExternal(user)) redirect(portalPath(user));
   return <Workspace path={path} />;
 }

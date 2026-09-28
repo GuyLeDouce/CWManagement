@@ -1,3 +1,4 @@
+import { isExternal, portalPath } from '@/lib/external-identity';
 import { redirect, notFound } from 'next/navigation';
 import { currentUser } from '@/lib/auth';
 import { ClientPortal } from '@/components/client-portal';
@@ -6,7 +7,8 @@ export const dynamic = 'force-dynamic';
 export default async function Page({ params }: { params: Promise<{ path?: string[] }> }) {
   const user = await currentUser();
   if (!user) redirect('/login?next=/client');
-  if (!user.roles.includes('CLIENT')) redirect('/');
+  if (user.roles.length !== 1 || user.roles[0] !== 'CLIENT')
+    redirect(isExternal(user) ? portalPath(user) : '/');
   const path = (await params).path || [];
   if (path.length && (path[0] !== 'projects' || !path[1] || path.length > 3)) notFound();
   if (path[1]) {

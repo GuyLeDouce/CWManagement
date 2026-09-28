@@ -14,20 +14,20 @@ Cost-code administration/import, estimate and proposal snapshot revisions, print
 
 ## Phase 4 — Purchasing and change management (implemented)
 
-Shared PO/WO document families, immutable issued revisions, approvals, normalized commitments, atomic invoice consumption/reversal, controlled overage rejection, manually accepted COs, contract adjustments and budget snapshots, print output, scoped work queues and transactional/browser tests. Phase 5 adds credits and client approval. Vendor acknowledgements, regulated electronic signatures and automatic document delivery remain follow-up work.
+Shared PO/WO document families, immutable issued revisions, approvals, normalized commitments, atomic invoice consumption/reversal, controlled overage rejection, manually accepted COs, contract adjustments and budget snapshots, print output, scoped work queues and transactional/browser tests. Phase 5 adds credits and client approval. Phase 6 implements authenticated vendor receipt acknowledgements. Regulated electronic signatures and automatic document delivery remain follow-up work.
 
 ## Phase 5 — Selections and client portal (implemented)
 
 Allowances and options, explicit client grants/invitations, allowlisted portal DTOs, published schedule/updates/files, immutable selection decisions, signed selection CO deltas, authenticated idempotent CO approval and scoped messaging are implemented. SMTP delivery uses existing configuration; production file storage, scheduled reminders and larger-history pagination remain follow-up work. Warranty remains later operational work.
 
-## Phase 6 — Trade portal
+## Phase 6 — Trade portal (implemented)
 
-Trade / Subcontractor Portal → explicit scoped access → published schedules → issued Work Orders / POs → drawings/documents → acknowledgement → site instructions → deficiencies → uploads → trade communication. Reuse Phase 5 isolation patterns with separate trade DTOs.
+Separate Contact-scoped TradeProjectAccess, secure invitation/setup, mobile trade workspace, assigned/released schedule and structured conflict responses, exact-recipient PO/WO history and immutable receipts, explicitly shared documents, issued instructions, verified deficiencies, validated uploads and isolated trade conversations are implemented. Phase 5 client isolation remains independent. Production storage, scheduled reminders and broader company delegation remain follow-up work.
 
-## Phase 7 — QuickBooks Desktop
+## Phase 7 - QuickBooks Desktop (implemented for documented scope; live validation pending)
 
-Web Connector/qbXML queues, mappings, reconciliation, error recovery, and operational-to-ledger synchronization.
+Dedicated SOAP/QWC service, hashed credentials/tickets, discovery/company binding, PostgreSQL request evidence, operator mappings, zero-tax PO Add/reviewed Mod, approved TimeTrackingAdd and transactional Bill/ActualCost/commitment reconciliation are implemented with tests and an accounting dashboard. Work Orders remain local. [Supported scope and limits](QUICKBOOKS_DESKTOP.md): Canadian taxable PO mapping, deleted-Bill automation and unsupported Bill forms require follow-up before those workflows are production-ready. Complete the [live checklist](QUICKBOOKS_LIVE_VALIDATION.md) before claiming live compatibility.
 
 ## Phase 8 — Reporting and automation
 
-Portfolio reporting, warranty operations, management analytics, scheduled alerts, and workflow automation.
+Close Phase 7 live-validation and tax/deletion gaps first. Then extend normalized portfolio reports and management dashboards; warranty/service operations through portal/file/message boundaries; scheduled selection/trade/connector reminders with durable deduplication; workflow automation; production hardening, monitoring, retention and recovery; and audited CoConstruct migration/retirement tools.

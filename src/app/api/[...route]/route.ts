@@ -1,3 +1,6 @@
+import { isExternal } from '@/lib/external-identity';
+import { dispatchQuickBooks } from '@/lib/quickbooks/admin';
+import { dispatchTrade, dispatchTradeManagement } from '@/lib/trade-api';
 import { dispatchClient, dispatchClientManagement } from '@/lib/client-api';
 import { NextRequest, NextResponse } from 'next/server';
 import { dispatchFinancialOperations } from '@/lib/financial-api';
@@ -127,7 +130,11 @@ async function dispatch(request: NextRequest, path: string, body: unknown) {
   if (!get) await rateLimit(`action:${actor.id}`, 150, 60);
   if (path === 'auth/logout' && !get) return logout();
   if (path.startsWith('client/')) return dispatchClient(actor, get, path.slice(7), params, body);
-  ensure(!actor.roles.includes('CLIENT'), 'This action is not available.', 403);
+  if (path.startsWith('trade/')) return dispatchTrade(actor, get, path.slice(6), params, body);
+  ensure(!isExternal(actor), 'This action is not available.', 403);
+  if (path.startsWith('quickbooks/')) return dispatchQuickBooks(actor, get, path.slice(11), body);
+  if (path.startsWith('trade-management/'))
+    return dispatchTradeManagement(actor, get, path.slice(17), params, body);
   if (path.startsWith('client-management/'))
     return dispatchClientManagement(actor, get, path.slice(18), params, body);
   if (path.startsWith('financial/operations/'))

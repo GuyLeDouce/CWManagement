@@ -30,7 +30,7 @@ export async function clientNotice(tx: Tx, projectId: string, title: string, con
   return ids;
 }
 // Called once after the event transaction commits; inbox remains authoritative if SMTP fails.
-export async function deliverClientNotices(ids: string[]) {
+export async function deliverPortalNotices(ids: string[]) {
   for (const id of ids) {
     const n = await db.notification
       .findUnique({ where: { id }, include: { user: true } })
@@ -43,3 +43,5 @@ export async function deliverClientNotices(ids: string[]) {
       }).catch(() => undefined);
   }
 }
+
+export const deliverClientNotices = deliverPortalNotices;

@@ -1,0 +1,7 @@
+{
+  "Customer": {"CustomerRet":{"ListID":"job","EditSequence":"12","Name":"Renovation","FullName":"Client:Renovation","IsActive":"true"}},
+  "Vendor": {"VendorRet":{"ListID":"vendor","EditSequence":"13","Name":"Electrical Supplier","IsActive":"true"}},
+  "Employee": {"EmployeeRet":{"ListID":"employee","EditSequence":"14","Name":"Pat Builder","IsActive":"true"}},
+  "Item": {"ItemServiceRet":{"ListID":"item","EditSequence":"15","Name":"Electrical","FullName":"Trades:Electrical","IsActive":"true"}},
+  "Account": {"AccountRet":{"ListID":"account","EditSequence":"16","Name":"Job supplies","FullName":"Job supplies","IsActive":"true"}}
+}

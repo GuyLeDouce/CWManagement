@@ -4,7 +4,7 @@ QuickBooks Desktop is authoritative for the general ledger. CWManagement owns pr
 
 `AccountingSyncMapping` records the CW entity/type, QuickBooks ListID or TxnID, sync direction, status, last successful timestamp, and sanitized error. It does not contain credentials. Synced financial transactions become immutable; changes create revisions/reversals and another audit event.
 
-The Web Connector integration is deferred to Phase 7. It will expose a narrowly authenticated qbXML service, queue work idempotently, record request/response metadata without sensitive payload logging, and reconcile customers/jobs, vendors, employees, items/cost codes, time, purchase orders, bills, and actual costs. Conflicts require deliberate operator resolution. QuickBooks credentials and connector secrets live only in deployment environment variables.
+Phase 7 implements a dedicated Web Connector SOAP/qbXML service with persistent sessions/queue, explicit mappings and discovery-first activation. Connector passwords are database scrypt hashes with copy-once setup, not plaintext environment configuration. See [QuickBooks Desktop](QUICKBOOKS_DESKTOP.md) for supported directions, transactional Bill reconciliation and limitations. Live QuickBooks validation remains pending.
 
 ## Cost-code decision
 
@@ -24,10 +24,14 @@ Internal estimated cost, client price, budget, remaining commitment, actual cost
 
 The initial forecast per Cost Code/Cost Type is `max(current budget, actual + remaining commitment + forecast adjustment)`. Remaining commitment is `committedAmount - consumedAmount`, so linked actuals do not double-count the original commitment. Phase 4 updates consumption transactionally when a manual invoice is linked or an existing actual is reconciled, and restores consumption on reversal.
 
-QuickBooks remains ledger-authoritative. `ActualCost.externalSystem + sourceExternalId`, QuickBooks TxnID/EditSequence fields, and source types provide idempotent future imports into this normalized job-cost ledger.
+QuickBooks remains ledger-authoritative. `ActualCost.externalSystem + sourceExternalId`, QuickBooks TxnID/EditSequence fields, and source types provide idempotent versioned imports into this normalized job-cost ledger.
 
 ## Purchasing and contract changes
 
 Phase 5 adds allowance/selection traceability, not another ledger. Allowance is already included in contract; only selected client price minus included allowance becomes draft CO selling price. Internal CO cost is selected cost minus included cost baseline. Zero price difference approves the selection without ledger changes. Negative deltas preserve signed HST and reduce current contract/budget only on CO acceptance. Acceptance rejects negative resulting budget allocations or contract value. Authenticated portal approval calls the same transactional financial acceptance function as staff. ORIGINAL values remain untouched.
 
 Issued PO/WO revisions feed Commitment/CommitmentLine, excluding recoverable tax. Draft/approved documents have no exposure. Overage rejection requires purchasing revision, with no implicit override. Reversals preserve source actual rows and reconcile consumption. Accepted CO client price creates ContractAdjustment; estimated internal cost creates a new CHANGE_ORDER BudgetVersion. Project.contractAmount remains the original pre-tax contract. Tax is neither budget cost nor contract revenue here. No AP bills, AR, payroll, qbXML or connector services were added.
+
+## Phase 6 operational boundary
+
+Trade acknowledgements, schedule responses, instructions, deficiency status, uploads and messages have no automatic ledger effect. A site instruction is not approval of extra cost. Trade proposed changes must be reviewed through existing purchasing revisions and client Change Orders. The portal projects only the recipient's agreed vendor price, never client revenue, budget, commitments, actuals, forecasts or margin. Phase 7 preserves this isolation; trades have no accounting administration capabilities.

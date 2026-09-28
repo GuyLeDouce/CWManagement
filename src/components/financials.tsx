@@ -103,6 +103,9 @@ export function FinancialsScreen() {
   );
   return (
     <div className="management-page">
+      <Link className="button" href="/financials/quickbooks">
+        QuickBooks Desktop connection
+      </Link>
       <ProcurementOverview />
       <VarianceAlerts />
       <div className="page-heading management-heading">

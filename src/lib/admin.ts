@@ -11,6 +11,10 @@ export const roles = z
   .array(z.enum(Role))
   .min(1)
   .refine(
+    (v) => !v.some((r) => ['CLIENT', 'SUBTRADE', 'VENDOR'].includes(r)) || v.length === 1,
+    'External portal accounts must have exactly one identity role.',
+  )
+  .refine(
     (v) => !v.includes('CONTROLLER') || v.some((r) => ['SHOP', 'SITE', 'OFFICE'].includes(r)),
     'Controllers need at least one clock-in mode.',
   );
@@ -114,6 +118,11 @@ export async function saveAdmin(tx: Tx, actor: Actor, input: AdminInput) {
         })
       : null;
     if (input.id) ensure(before, 'Employee not found.', 404);
+    if (before && (await tx.contact.findFirst({ where: { portalUserId: before.id } })))
+      ensure(
+        JSON.stringify(before.roles) === JSON.stringify(input.data.roles),
+        'Linked external identities cannot change role. Resolve the Contact link and portal grants explicitly first.',
+      );
     if (!has(actor, 'OWNER')) {
       ensure(
         !input.data.roles.some((r) => ['OWNER', 'ADMIN'].includes(r)) &&
@@ -177,10 +186,18 @@ export async function saveAdmin(tx: Tx, actor: Actor, input: AdminInput) {
     const saved = input.id
       ? await tx.project.update({ where: { id: input.id }, data })
       : await tx.project.create({ data });
-    await audit(tx, actor.id, before ? 'PROJECT_UPDATED' : 'PROJECT_CREATED', 'Project', saved.id, before, {
-      ...saved,
-      taskIds,
-    });
+    await audit(
+      tx,
+      actor.id,
+      before ? 'PROJECT_UPDATED' : 'PROJECT_CREATED',
+      'Project',
+      saved.id,
+      before,
+      {
+        ...saved,
+        taskIds,
+      },
+    );
     return saved;
   }
   if (input.entity === 'settings') {

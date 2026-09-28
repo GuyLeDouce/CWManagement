@@ -1,3 +1,5 @@
+import { tradeNotice, deliverPortalNotices } from './trade-notices';
+import { shareTradeFiles } from './trade-access';
 import { Capability, PurchasingType, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -266,7 +268,9 @@ export async function savePurchasing(actor: Actor, input: z.infer<typeof purchas
   });
 }
 export async function purchasingAction(actor: Actor, input: Transition) {
-  return transaction(async (tx) => {
+  const notices: string[] = [];
+  const result = await transaction(async (tx) => {
+    notices.length = 0;
     const item = await tx.purchasingRevision.findUnique({ where: { id: input.id }, include });
     ensure(item, 'Purchasing revision not found.', 404);
     await requireProjectAccess(actor, item.document.projectId, tx);
@@ -518,6 +522,25 @@ export async function purchasingAction(actor: Actor, input: Transition) {
         },
       });
       await refreshCommitment(tx, commitment.id, actor);
+      const tradeAttachments = await tx.storedFile.findMany({
+        where: { id: { in: item.attachmentIds }, projectId, visibility: 'TRADE', archivedAt: null },
+        select: { id: true },
+      });
+      await shareTradeFiles(
+        tx,
+        projectId,
+        item.vendorContactId,
+        tradeAttachments.map((f) => f.id),
+        true,
+      );
+      notices.push(
+        ...(await tradeNotice(
+          tx,
+          projectId,
+          [item.vendorContactId],
+          'A purchasing document has been issued for your acknowledgement.',
+        )),
+      );
       await documentEvent(tx, actor, {
         projectId,
         entity: 'PurchasingRevision',
@@ -557,4 +580,6 @@ export async function purchasingAction(actor: Actor, input: Transition) {
     });
     return saved;
   });
+  await deliverPortalNotices(notices);
+  return result;
 }

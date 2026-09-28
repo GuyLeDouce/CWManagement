@@ -1,3 +1,4 @@
+import { isExternal, portalPath } from '@/lib/external-identity';
 import { redirect } from 'next/navigation';
 import { currentUser } from '@/lib/auth';
 import { Desktop } from '@/components/desktop';
@@ -8,7 +9,9 @@ export default async function Page({
   searchParams: Promise<{ token?: string }>;
 }) {
   const { token = '' } = await searchParams;
-  if (!(await currentUser()))
+  const user = await currentUser();
+  if (!user)
     redirect(`/login?next=${encodeURIComponent('/desktop?token=' + encodeURIComponent(token))}`);
+  if (isExternal(user)) redirect(portalPath(user));
   return <Desktop token={token} />;
 }

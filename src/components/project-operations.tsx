@@ -8,6 +8,7 @@ import { ProjectBudget, ProjectEstimate, ProjectProposals } from './financials';
 import { PurchasingWorkspace, ProcurementOverview } from './purchasing';
 import { SelectionWorkspace, ClientManagement } from './selections';
 import { ProjectMessages } from './client-portal';
+import { TradeManagement } from './trade-management';
 
 type Person = { id: string; firstName: string; lastName: string };
 type Assignment = { id: string; role: string; primary: boolean; user: Person };
@@ -113,6 +114,7 @@ const tabs = [
   'change-orders',
   'selections',
   'clients',
+  'trades',
   'messages',
   'daily-logs',
   'files',
@@ -172,6 +174,8 @@ export function ProjectWorkspace({ id, tab = 'overview' }: { id: string; tab?: s
             <PurchasingWorkspace projectId={project.id} change />
           ) : active === 'selections' ? (
             <SelectionWorkspace projectId={project.id} />
+          ) : active === 'trades' ? (
+            <TradeManagement projectId={project.id} />
           ) : active === 'clients' ? (
             <ClientManagement projectId={project.id} />
           ) : active === 'messages' ? (

@@ -1,6 +1,6 @@
 # CWManagement
 
-A Cedar Winds-specific construction and business management platform. Phases 1–4 provide projects, contacts/companies, schedule/files, estimates/proposals, budgets, purchase/work orders, change orders, reconciled actual costs, and the proven mobile Time module inherited from CWTimeClock.
+A Cedar Winds-specific construction and business management platform. Phases 1–6 provide projects, contacts/companies, schedule/files, estimates/proposals, budgets, purchase/work orders, change orders, reconciled actual costs, selections, separate Client and Trade Portals, site instructions, deficiencies, and the proven mobile Time module inherited from CWTimeClock.
 
 **Stack:** Next.js 16, React, TypeScript, Tailwind/CSS theme variables, PostgreSQL, Prisma, Zod. Deploy with the usual **GitHub → Railway** workflow. The PWA is the same website saved to a phone; there is no App Store build or separate mobile backend.
 
@@ -31,7 +31,7 @@ The source-of-truth decisions are in [Architecture](docs/ARCHITECTURE.md), [Data
 
 Project workspaces now include Purchase Orders (including Work Orders/Subcontracts), Change Orders, and Budget/job-cost reports. Issued purchasing feeds the existing commitment ledger; invoices consume commitments atomically. Accepted change orders separately adjust current contract revenue and current internal budget. Original baselines and issued history remain preserved. See [Purchasing](docs/PURCHASING.md), [Change Orders](docs/CHANGE_ORDERS.md), and [Job Costing](docs/JOB_COSTING.md).
 
-Phase 4 requires migration `202609240001_purchasing_change_management`. Railway already runs `npm run db:migrate` before deployment. Back up and stage first; no new environment variables are required. Issuing records a document state; print/share delivery is manual. Phase 5 implements Client Portal, allowances/selections, authenticated CO approval and project messages. Trade Portal and QuickBooks remain deferred. Phase 5 also requires migration `202609240002_client_selections_portal`; see docs/CLIENT_PORTAL.md and docs/SELECTIONS.md. No new environment variables are required.
+Phase 4 requires migration `202609240001_purchasing_change_management`. Railway already runs `npm run db:migrate` before deployment. Back up and stage first. Phase 5 adds Client Portal, allowances/selections, authenticated CO approval and project messages through migration `202609240002_client_selections_portal`. Phase 6 adds the separate Trade Portal through `202609240003_trade_portal`: explicit access, own issued work, receipt evidence, schedule responses, shared documents, instructions, deficiencies, uploads and scoped messages. See [Trade Portal](docs/TRADE_PORTAL.md) and [Client Portal](docs/CLIENT_PORTAL.md). No new environment variables are required. Production uploads still require the durable storage adapter described in [Storage](docs/STORAGE.md). Phase 7 adds the QuickBooks Desktop Web Connector boundary, discovery/mapping, reviewed PO and approved-time export, and Bill-to-ActualCost import through `202609240004_quickbooks_desktop`. See [QuickBooks Desktop](docs/QUICKBOOKS_DESKTOP.md) and the mandatory [live checklist](docs/QUICKBOOKS_LIVE_VALIDATION.md). Live validation is pending; taxable PO exports and unsupported Bill forms remain blocked.
 
 ## Local setup
 

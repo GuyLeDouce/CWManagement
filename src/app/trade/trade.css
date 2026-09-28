@@ -1,0 +1,150 @@
+.trade-shell {
+  min-height: 100vh;
+  background: #f3f5f2;
+  color: #1d302c;
+}
+.trade-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem 4vw;
+  background: #fff;
+  border-bottom: 1px solid #d7e0d9;
+}
+.trade-header .brand {
+  max-width: 220px;
+}
+.trade-main {
+  max-width: 1050px;
+  margin: auto;
+  padding: 2rem 1rem 5rem;
+}
+.trade-main h1 {
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  margin: 0.6rem 0 1.5rem;
+}
+.trade-main h2 {
+  margin: 1.2rem 0 0.7rem;
+}
+.trade-nav {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.8rem 4vw;
+  background: #173e34;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.trade-nav a {
+  color: #fff;
+  padding: 0.7rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.trade-nav a[aria-current='page'] {
+  background: #d3e6d7;
+  color: #173e34;
+}
+.trade-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 1rem;
+}
+.trade-card {
+  display: block;
+  padding: 1.4rem;
+  margin: 0.7rem 0;
+  background: #fff;
+  border: 1px solid #dce4de;
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+.trade-card p {
+  margin: 0.7rem 0;
+}
+.trade-attention {
+  background: #e2eee4;
+  border-left: 5px solid #417258;
+  padding: 1rem 1.4rem;
+  margin: 1.5rem 0;
+}
+.trade-attention li {
+  padding: 0.5rem 0;
+}
+.trade-form {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+.trade-shell label,
+.trade-card label {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.7rem 0;
+}
+.trade-shell input:not([type='checkbox']),
+.trade-shell select,
+.trade-shell textarea {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid #b7c9be;
+  border-radius: 6px;
+  min-height: 44px;
+  background: white;
+}
+.trade-shell button {
+  min-height: 44px;
+  margin: 0.4rem 0.4rem 0.4rem 0;
+}
+.trade-success {
+  color: #235f36;
+  font-weight: 600;
+}
+.preserve-lines {
+  white-space: pre-wrap;
+}
+.trade-lines > div {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 1rem;
+  border-bottom: 1px solid #ddd;
+  padding: 1rem 0;
+}
+.trade-shell small {
+  color: #53665a;
+}
+.trade-card ul {
+  padding-left: 1.2rem;
+}
+@media (max-width: 600px) {
+  .trade-header > span {
+    display: none;
+  }
+  .trade-lines > div {
+    grid-template-columns: 1fr;
+  }
+  .trade-card {
+    padding: 1rem;
+  }
+  .trade-header img {
+    max-width: 170px;
+  }
+}
+@media print {
+  .trade-header,
+  .trade-nav,
+  .no-print {
+    display: none !important;
+  }
+  .trade-main {
+    padding: 0;
+  }
+  .trade-card {
+    break-inside: avoid;
+  }
+  .trade-shell {
+    background: white;
+  }
+}
