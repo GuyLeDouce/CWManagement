@@ -4,7 +4,7 @@
 
 Purchasing uses existing Contact, Company, and ProjectContact records, not a separate Vendor table. Contacts support multiple types (VENDOR/SUBTRADE), independent contractors, company membership, email, phone, addresses, notes/responsibilities, and active status. The Contacts & Companies directory edits both record types. Purchasing selects a primary vendor contact and an optional billing contact from the same company. Other company contacts can represent estimating or trade coordination. ProjectContact retains project-specific business roles. Company.active and Contact.active are checked before drafting and issuing; existing historical documents remain available.
 
-Company.quickBooksListId and AccountingSyncMapping remain future mapping anchors. No synchronization or vendor authentication is implemented.
+Phase 6 provides explicit trade/vendor portal authentication and exact-recipient purchasing visibility. Phase 7/7.5 provides reviewed QuickBooks Vendor mappings and eligible PO synchronization; Work Orders remain CW-only. See TRADE_PORTAL.md and QUICKBOOKS_PILOT.md.
 
 ## Documents and numbering
 
@@ -36,7 +36,7 @@ Example: a $10,000 commitment with a $4,000 invoice reports $6,000 remaining com
 
 Overages are rejected. There is no override. Revise, approve, and issue the PO/WO before retrying. After financial rollback, the rejected action creates an in-app notice for the acting reconciler and an audit event, deduplicated while an unread overage notice exists for that user/line. Page reads never create notifications.
 
-Manual actual reversal requires ACTUAL_COST_RECONCILE and a reason. It marks reversedAt/reversedById/reversalReason, subtracts consumption, recalculates fulfillment, and audits in the same transaction. Duplicate reversal is rejected. Imported actuals must be corrected through their future source system; no import/sync workflow is provided here.
+Manual actual reversal requires ACTUAL_COST_RECONCILE and a reason. It marks reversedAt/reversedById/reversalReason, subtracts consumption, recalculates fulfillment, and audits in the same transaction. Duplicate reversal is rejected. QuickBooks-derived actuals use the QuickBooks Bill review/reconciliation/hold workflow introduced in Phase 7/7.5, not generic manual reversal. See QUICKBOOKS_PILOT.md.
 
 ## Workspace and documents
 

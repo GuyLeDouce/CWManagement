@@ -3,6 +3,7 @@ import { Pwa } from '@/components/pwa';
 import './globals.css';
 import './client/client.css';
 import './trade/trade.css';
+import './help.css';
 export const metadata: Metadata = {
   title: 'CWManagement',
   description: 'Construction and business management for Cedar Winds Design~Build.',

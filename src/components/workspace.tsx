@@ -22,6 +22,7 @@ import {
   BarChart3,
   UserRoundSearch,
   Bell,
+  BookOpen,
 } from 'lucide-react';
 import { useApi, api } from '@/lib/client';
 import type { State } from '@/lib/client-types';
@@ -45,8 +46,10 @@ import { NotificationScreen } from './notifications';
 import { FinancialsScreen } from './financials';
 import { QuickBooksScreen } from './quickbooks';
 import { TemplatesScreen } from './templates';
+import { InternalHelp, ContextualHelp } from './internal-help';
 import { WorkCentre, GlobalSearch, RecentProjects } from './productivity';
 const items = [
+  { view: 'how-to', label: 'HOW TO', icon: BookOpen },
   { view: '', label: 'Dashboard', icon: LayoutDashboard },
   { view: 'leads', label: 'Leads', icon: UserRoundSearch },
   { view: 'projects', label: 'Projects', icon: FolderKanban },
@@ -84,6 +87,7 @@ export function Workspace({ path }: { path: string[] }) {
       (['', 'leads', 'projects', 'schedule', 'time', 'reports'].includes(i.view) &&
         managementUser) ||
       i.view === 'notifications' ||
+      i.view === 'how-to' ||
       (i.view === 'my-work' && managementUser) ||
       (i.view === 'templates' && cap('TEMPLATE_VIEW', 'COST_CATALOG_VIEW')) ||
       (i.view === 'financials' &&
@@ -192,6 +196,7 @@ export function Workspace({ path }: { path: string[] }) {
             </div>
           )}
           <ErrorBox message={error} />
+          {data && permitted && view !== 'how-to' && <ContextualHelp path={path} />}
           {!data ? (
             <Loading />
           ) : !permitted ? (
@@ -206,6 +211,13 @@ export function Workspace({ path }: { path: string[] }) {
               <p>Scan the shop QR and clock in before opening your controller tools.</p>
               <Link href="/">Return to your workday</Link>
             </div>
+          ) : view === 'how-to' ? (
+            <InternalHelp
+              key={path.join('/')}
+              path={path.slice(1)}
+              capabilities={data.capabilities}
+              roles={data.user.roles}
+            />
           ) : view === '' && managementUser && !token ? (
             <DashboardScreen />
           ) : view === 'projects' && path[1] ? (

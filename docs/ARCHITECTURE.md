@@ -45,7 +45,7 @@ Every protected read and mutation is checked server-side. UI hiding is convenien
 
 `purchasing.ts` owns shared PO/WO families, revisions and issuance into the existing Commitment ledger. `change-orders.ts` owns client change revisions and atomic acceptance into ContractAdjustment and BudgetVersion. `commitments.ts` owns consumption, reconciliation, reversal, and fulfillment states. Shared `financial-math.ts` preserves Phase 3 Decimal rules. `financial-documents.ts` handles numbering, identity snapshots, validated references and event-triggered notifications. `financial-api.ts` groups `/api/financial/operations/*` behind the existing authenticated dispatcher and origin/rate-limit protections.
 
-Generic project/activity responses omit audit before/after payloads; nonfinancial project readers do not receive contract amounts. Internal document access uses capabilities plus project scope. Print snapshots omit internal notes and client margins. Phase 6 adds vendor authentication; payroll and accounting synchronization remain deferred.
+Generic project/activity responses omit audit before/after payloads; nonfinancial project readers do not receive contract amounts. Internal document access uses capabilities plus project scope. Print snapshots omit internal notes and client margins. Phase 6 adds vendor authentication; Phase 7/7.5 adds internal QuickBooks synchronization. Payroll calculation remains deferred.
 
 ## Phase 5 services
 
@@ -64,3 +64,7 @@ trade-access.ts owns explicit TradeProjectAccess and record scopes; trade-projec
 ## Productization — company standards
 
 `standards-schema.ts` defines bounded, typed template content and Decimal assembly/relative-date rules. `standards.ts` owns the library, catalog, preview imports and atomic copying into existing records. `project-setup.ts` owns the guided setup/selective-copy transaction; `productivity.ts` supplies scoped search/work queues and schedule bulk actions. `specifications.ts` separates information-only specifications from client decisions. `/api/standards/*` remains behind the internal identity, capability, origin and rate-limit boundaries. No template has financial effect until ordinary document approval/issue workflows run. See [Templates](TEMPLATES.md) and [Product UX](PRODUCT_UX.md).
+
+## In-app operating manual
+
+Version-controlled `src/lib/help` articles power internal `/how-to` and separate `/client/help` and `/trade/help` surfaces. Existing server identity guards remain authoritative; external help imports only external article content and no project loaders. The shared renderer provides local search, capability-aware action links and print layouts. No database changes. See [Help content](HELP_CONTENT.md).

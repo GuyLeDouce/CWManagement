@@ -54,6 +54,7 @@ export function ClientPortal({
           <Brand />
         </Link>
         <span>Your project, together.</span>
+        <Link href="/client/help">Help</Link>
         <ActionButton
           action={async () => {
             await api('auth/logout', {});

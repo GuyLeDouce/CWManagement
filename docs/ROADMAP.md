@@ -32,6 +32,10 @@ Dedicated SOAP/QWC service, hashed credentials/tickets, discovery/company bindin
 
 Company template library, project setup wizard/selective copy, relative schedules, estimate templates, catalog CSV/quick-add, assemblies, private selection/specification templates, proposal/scope wording, accepted-allowance conversion, company defaults, work queues/search/recent projects, inline estimating and schedule bulk/timeline controls are implemented locally. This is not Phase 8. See [Product UX audit](PRODUCT_UX_AUDIT.md), [Templates](TEMPLATES.md), [Cost catalog](COST_CATALOG.md) and [Product UX](PRODUCT_UX.md) for supported scope and remaining refinements. No production rollout is implied by local implementation.
 
+## Productization ? HOW TO operating manual
+
+Internal searchable help, separate client/trade help, contextual workspace links, role-aware starting guides and printable manuals describe current supported workflows. Content maintenance is documented in [HELP_CONTENT.md](HELP_CONTENT.md). This is not Phase 8 and does not change financial or portal authorization.
+
 ## Phase 8 — Reporting and automation
 
 **Not started.** Phase 7.5 adds [controlled live validation](QUICKBOOKS_PILOT.md): pilot allowlists, pause, pre-flight, reviewed imports/reversals, append-only test results and guarded activation. Actual Cedar Winds live validation remains pending; automated tests do not change that status.

@@ -1,3 +1,4 @@
+import { PortalHelp } from '@/components/portal-help';
 import { isExternal, portalPath } from '@/lib/external-identity';
 import { redirect, notFound } from 'next/navigation';
 import { currentUser } from '@/lib/auth';
@@ -10,6 +11,7 @@ export default async function Page({ params }: { params: Promise<{ path?: string
   if (user.roles.length !== 1 || user.roles[0] !== 'CLIENT')
     redirect(isExternal(user) ? portalPath(user) : '/');
   const path = (await params).path || [];
+  if (path[0] === 'help') return <PortalHelp audience="client" path={path.slice(1)} />;
   if (path.length && (path[0] !== 'projects' || !path[1] || path.length > 3)) notFound();
   if (path[1]) {
     try {

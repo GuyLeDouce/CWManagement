@@ -115,6 +115,7 @@ export function TradePortal({
           <Brand />
         </Link>
         <span>Trade workspace</span>
+        <Link href="/trade/help">Help</Link>
         <ActionButton
           action={async () => {
             await api('auth/logout', {});
