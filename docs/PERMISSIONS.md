@@ -61,3 +61,7 @@ QUICKBOOKS_VIEW, QUICKBOOKS_CONFIGURE, QUICKBOOKS_MAP, QUICKBOOKS_QUEUE and QUIC
 ## Company standards
 
 TEMPLATE_VIEW/TEMPLATE_MANAGE are bundled for Owner, Controller, Estimator, PM/Project Manager and Admin. COST_CATALOG_VIEW is bundled for those management roles; COST_CATALOG_MANAGE is for Owner, Controller and Estimator. Overrides still apply. Applying a template additionally requires each destination capability (ESTIMATE_EDIT/CREATE, PROJECT_SCHEDULE_EDIT, SELECTION_CREATE) and project access; template access does not bypass financial permissions. New project setup requires PROJECT_CREATE/PROJECT_ASSIGN; contact creation requires CONTACT_MANAGE and existing-client association requires PROJECT_CONTACT_MANAGE. External identities remain blocked before dispatch. Specifications use selection capabilities and require CLIENT_CONTENT_PUBLISH to publish or change published content. Client DTOs explicitly select only published specification identity/wording/date.
+
+## Client Vision
+
+CLIENT_PREVIEW is bundled for OWNER, ADMIN, CONTROLLER, PM, PROJECT_MANAGER, ESTIMATOR and DESIGNER. Normal internal project scope and explicit denials remain mandatory. OFFICE/FIELD/SHOP receive no automatic grant; internal overrides remain available. CLIENT/SUBTRADE/VENDOR cannot preview. Publishing/settings edits use CLIENT_CONTENT_PUBLISH; company defaults use SETTINGS_MANAGE. Preview grants no publication or approval capability.

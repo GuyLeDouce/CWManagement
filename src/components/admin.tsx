@@ -1,4 +1,5 @@
 'use client';
+import { ClientViewSettings } from './client-view-settings';
 import { CompanyDefaults } from './productivity';
 import { FormEvent, useState } from 'react';
 import { Plus, Pencil, QrCode, Printer, Upload, Download } from 'lucide-react';
@@ -35,7 +36,12 @@ export function AdminScreen({ zone }: { zone: string }) {
     [editing, setEditing] = useState<Item | undefined | null>(null);
   return (
     <>
-      {tab === 'settings' && <CompanyDefaults />}
+      {tab === 'settings' && (
+        <>
+          <CompanyDefaults />
+          <ClientViewSettings />
+        </>
+      )}
       <div className="page-heading">
         <span className="eyebrow">ADMINISTRATION</span>
         <h1>A well-organized workday.</h1>

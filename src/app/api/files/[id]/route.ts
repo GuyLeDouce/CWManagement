@@ -1,3 +1,4 @@
+import { previewFile } from '@/lib/client-vision';
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { db } from '@/lib/db';
@@ -16,14 +17,17 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const id = (await context.params).id;
     const client = actor.roles.includes('CLIENT');
     const trade = isTrade(actor);
-    if (!client && !trade) await requireCapability(actor, 'FILE_VIEW_INTERNAL');
-    const record = trade
-      ? await tradeFile(actor, id)
-      : client
-        ? await clientFile(actor, id)
-        : await db.storedFile.findFirst({ where: { id, archivedAt: null } });
+    const previewProject = new URL(_request.url).searchParams.get('clientPreview');
+    if (!previewProject && !client && !trade) await requireCapability(actor, 'FILE_VIEW_INTERNAL');
+    const record = previewProject
+      ? await previewFile(actor, id, previewProject)
+      : trade
+        ? await tradeFile(actor, id)
+        : client
+          ? await clientFile(actor, id)
+          : await db.storedFile.findFirst({ where: { id, archivedAt: null } });
     ensure(record, 'File not found.', 404);
-    if (!client && !trade) await requireProjectAccess(actor, record.projectId);
+    if (!previewProject && !client && !trade) await requireProjectAccess(actor, record.projectId);
     const bytes = await storage().get(record.storageKey);
     const inline = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(record.mimeType);
     return new NextResponse(new Uint8Array(bytes).buffer, {

@@ -1,10 +1,12 @@
 'use client';
+import { ClientViewSettings } from './client-view-settings';
+import type { State } from '@/lib/client-types';
 import { TemplateTools, WordingPicker } from './templates';
 import { ScheduleTools } from './schedule-tools';
 import { WorkCentre } from './productivity';
 import Link from 'next/link';
 import { FormEvent, useRef, useState } from 'react';
-import { Archive, Check, FileText, Image as PhotoIcon, Plus } from 'lucide-react';
+import { Eye, Archive, Check, FileText, Image as PhotoIcon, Plus } from 'lucide-react';
 import { api, date, duration, pretty, useApi } from '@/lib/client';
 import { ActionButton, Badge, Empty, ErrorBox, Loading, Modal } from './ui';
 import { ProjectBudget, ProjectEstimate, ProjectProposals } from './financials';
@@ -128,6 +130,7 @@ const tabs = [
 ] as const;
 
 export function ProjectWorkspace({ id, tab = 'overview' }: { id: string; tab?: string }) {
+  const actor = useApi<State>('state');
   const active = tabs.includes(tab as (typeof tabs)[number]) ? tab : 'overview';
   const { data, error, refresh } = useApi<{ project: Project }>(
     `management/project?id=${encodeURIComponent(id)}`,
@@ -157,6 +160,19 @@ export function ProjectWorkspace({ id, tab = 'overview' }: { id: string; tab?: s
                 </span>
               </div>
             </div>
+            {actor.data?.capabilities.includes('CLIENT_PREVIEW') && (
+              <Link
+                className="client-vision-button"
+                href={`/client-preview/projects/${id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Preview Client View"
+                aria-label="Preview Client View"
+              >
+                <Eye size={20} />
+                <span>Client View</span>
+              </Link>
+            )}
           </div>
           <nav className="project-tabs" aria-label="Project navigation">
             {tabs.map((item) => (
@@ -204,7 +220,10 @@ export function ProjectWorkspace({ id, tab = 'overview' }: { id: string; tab?: s
           ) : active === 'time' ? (
             <TimeSummary project={project} />
           ) : (
-            <ProjectSettings project={project} refresh={refresh} />
+            <>
+              <ClientViewSettings projectId={project.id} />
+              <ProjectSettings project={project} refresh={refresh} />
+            </>
           )}
         </>
       )}

@@ -49,7 +49,6 @@ import { TemplatesScreen } from './templates';
 import { InternalHelp, ContextualHelp } from './internal-help';
 import { WorkCentre, GlobalSearch, RecentProjects } from './productivity';
 const items = [
-  { view: 'how-to', label: 'HOW TO', icon: BookOpen },
   { view: '', label: 'Dashboard', icon: LayoutDashboard },
   { view: 'leads', label: 'Leads', icon: UserRoundSearch },
   { view: 'projects', label: 'Projects', icon: FolderKanban },
@@ -67,6 +66,7 @@ const items = [
   { view: 'send', label: 'Send', icon: Send },
   { view: 'visits', label: 'Site visit', icon: HardHat },
   { view: 'admin', label: 'Settings', icon: Settings },
+  { view: 'how-to', label: 'HOW TO', icon: BookOpen },
 ];
 export function Workspace({ path }: { path: string[] }) {
   const token = path[0] === 'scan' ? path[1] : undefined,

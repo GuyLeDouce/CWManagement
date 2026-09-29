@@ -16,9 +16,9 @@ requireClientProjectAccess checks an active dedicated CLIENT user, active matchi
 
 ## Routes and DTO policy
 
-/client lists accessible projects. /client/projects/[id]/[section] provides Home, Schedule, Selections, Change Orders, Updates, Photos, Documents and Messages in a separate mobile layout. /api/client/* never reuses internal workspace loaders. client-projections.ts uses Prisma select allowlists and strips unknown issued-snapshot fields with Zod. Raw Prisma financial records, User, StoredFile and AuditLog never become portal props.
+/client lists accessible projects. /client/projects/[id]/[section] provides Home, Schedule, Proposals, Selections, Change Orders, Updates, Photos, Documents and Messages in a separate mobile layout. /api/client/* never reuses internal workspace loaders. client-projections.ts uses Prisma select allowlists and strips unknown issued-snapshot fields with Zod. Raw Prisma financial records, User, StoredFile and AuditLog never become portal props.
 
-COs are further restricted to their named client Contact. Staff preview uses the same projection with actions disabled and shows published content for all intended project recipients. Internal supplier pricing, markup, cost ledgers, notes, accounting mappings, storage keys and unrelated contacts are excluded server-side.
+COs are further restricted to their named client Contact. Client Vision uses the same projection with actions disabled. General preview excludes addressed documents; selecting a legitimate project client applies that recipient's exact filters. See CLIENT_VISION.md. Internal supplier pricing, markup, cost ledgers, notes, accounting mappings, storage keys and unrelated contacts are excluded server-side.
 
 ## Publishing
 
@@ -37,3 +37,7 @@ The existing applyChangeOrderAcceptance helper and approval insertion run in one
 Event-triggered inbox entries accompany invitations, selection publication, CO issue, newly published content and staff messages. Email runs after commit, best effort; inbox is authoritative. Reads create no notifications. Client actions notify scoped staff and create safe activity entries. Home derives attention and recent updates only from published sources, never AuditLog.
 
 Deadline reminders, email retry outbox, pagination of large histories, warranty and payments are deferred. Client project messaging includes read state; rich client message attachments and private individual-client threads are not implemented. Trade messaging uses its own Contact-scoped authorization boundary.
+
+## Client Vision and fixed-price presentation
+
+See CLIENT_VISION.md for the dedicated preview route, recipient selector, shared rendering, proposal tab, scoped downloads, contract-summary prerequisites and company/project tax-display preferences. Client selection prices remain explicitly pre-HST; issued proposals and COs use recorded final totals. Internal estimate/cost information is never exposed.

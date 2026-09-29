@@ -12,26 +12,66 @@ async function authorize(actor: Actor, projectId: string, write: boolean, tx: Tx
   await requireProjectAccess(actor, projectId, tx);
   return null;
 }
+export async function clientConversations(
+  tx: Tx,
+  projectId: string,
+  contactId?: string,
+  userId?: string,
+) {
+  const rows = await tx.conversation.findMany({
+    where: {
+      projectId,
+      audience: 'CLIENT',
+      AND: [
+        {
+          OR: [
+            { selectionId: null },
+            {
+              selection: { publishedAt: { not: null }, status: { notIn: ['DRAFT', 'CANCELLED'] } },
+            },
+          ],
+        },
+        {
+          OR: [
+            { changeOrderRevisionId: null },
+            ...(contactId
+              ? [{ changeOrderRevision: { clientId: contactId, issuedAt: { not: null } } }]
+              : []),
+          ],
+        },
+      ],
+    },
+    select: {
+      id: true,
+      subject: true,
+      reads: { where: { userId: userId ?? '__no_client__' }, select: { readAt: true } },
+      messages: {
+        select: {
+          id: true,
+          body: true,
+          createdAt: true,
+          author: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 500,
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  });
+  return rows.map(({ reads, ...row }) => ({
+    ...row,
+    unread: !!userId && row.messages.some((m) => !reads[0] || m.createdAt > reads[0].readAt),
+  }));
+}
 export async function conversations(actor: Actor, projectId: string) {
   return transaction(async (tx) => {
     const grant = await authorize(actor, projectId, false, tx);
+    if (grant) return clientConversations(tx, projectId, grant.contactId, actor.id);
     const rows = await tx.conversation.findMany({
       where: {
         projectId,
-        ...(grant
-          ? {
-              audience: 'CLIENT' as const,
-              AND: [
-                { OR: [{ selectionId: null }, { selection: { publishedAt: { not: null } } }] },
-                {
-                  OR: [
-                    { changeOrderRevisionId: null },
-                    { changeOrderRevision: { clientId: grant.contactId, issuedAt: { not: null } } },
-                  ],
-                },
-              ],
-            }
-          : { audience: { not: 'TRADE' as const } }),
+        audience: { not: 'TRADE' as const },
       },
       select: {
         id: true,

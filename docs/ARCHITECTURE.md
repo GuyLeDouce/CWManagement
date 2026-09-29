@@ -68,3 +68,7 @@ trade-access.ts owns explicit TradeProjectAccess and record scopes; trade-projec
 ## In-app operating manual
 
 Version-controlled `src/lib/help` articles power internal `/how-to` and separate `/client/help` and `/trade/help` surfaces. Existing server identity guards remain authoritative; external help imports only external article content and no project loaders. The shared renderer provides local search, capability-aware action links and print layouts. No database changes. See [Help content](HELP_CONTENT.md).
+
+## Client Vision
+
+Staff preview has its own authenticated `/client-preview/projects/[id]` boundary but reuses the client project DTO and ClientPortal renderer. Preview authorization is internal capability/project scope, not impersonation or a portal grant. No client mutation endpoint accepts a staff identity. See CLIENT_VISION.md.

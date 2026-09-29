@@ -169,6 +169,15 @@ roleCapabilities.ESTIMATOR!.push(
   'CHANGE_ORDER_EDIT',
   'CHANGE_ORDER_APPROVE_INTERNAL',
 );
+for (const role of [
+  'ADMIN',
+  'CONTROLLER',
+  'PM',
+  'PROJECT_MANAGER',
+  'ESTIMATOR',
+  'DESIGNER',
+] as Role[])
+  roleCapabilities[role]!.push('CLIENT_PREVIEW');
 const portalManagement: Capability[] = [
   'CLIENT_ACCESS_MANAGE',
   'CLIENT_CONTENT_PUBLISH',

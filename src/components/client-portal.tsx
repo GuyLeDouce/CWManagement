@@ -2,12 +2,12 @@
 import { WordingPicker } from './templates';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { api, useApi, date as formatDate } from '@/lib/client';
 import { Brand } from './brand';
 import { ActionButton, ErrorBox, Loading, Empty } from './ui';
 import type { ClientProject } from '@/lib/client-projections';
-import type { Prisma } from '@prisma/client';
+import type { ClientTaxDisplayMode, Prisma } from '@prisma/client';
 
 type Wire<T> = T extends Date
   ? string
@@ -26,6 +26,7 @@ const dollars = (value: string | number) =>
 const sections = [
   'home',
   'schedule',
+  'proposals',
   'selections',
   'change-orders',
   'updates',
@@ -36,34 +37,113 @@ const sections = [
 export function ClientPortal({
   projectId,
   section = 'home',
+  preview = false,
+  contactId,
 }: {
   projectId?: string;
   section?: string;
+  preview?: boolean;
+  contactId?: string;
 }) {
   const router = useRouter();
-  const { data, error, refresh } = useApi<PortalData>(
-    projectId ? `client/project?projectId=${encodeURIComponent(projectId)}` : '',
+  const [changingClient, startClientChange] = useTransition();
+  const { data, error, refresh } = useApi<
+    PortalData & { preview?: { clients: { id: string; name: string }[]; contactId: string | null } }
+  >(
+    projectId
+      ? `${preview ? 'client-management/preview' : 'client/project'}?projectId=${encodeURIComponent(projectId)}${preview && contactId ? '&contactId=' + encodeURIComponent(contactId) : ''}`
+      : '',
   );
   const projects = useApi<{
     projects: { id: string; name: string; number: string; stage: string | null }[];
-  }>('client/projects');
+  }>(preview ? '' : 'client/projects');
+  const base = preview ? `/client-preview/projects/${projectId}` : `/client/projects/${projectId}`;
+  const suffix = preview && contactId ? `?contactId=${encodeURIComponent(contactId)}` : '';
+  const destinations: Record<string, string> = {
+    home: 'clients',
+    schedule: 'schedule',
+    proposals: 'proposals',
+    selections: 'selections',
+    'change-orders': 'change-orders',
+    updates: 'daily-logs',
+    photos: 'photos',
+    documents: 'files',
+    messages: 'messages',
+  };
   return (
     <div className="client-shell">
+      {preview && (
+        <aside className="client-preview-banner" aria-label="Client View Preview">
+          <div>
+            <strong>CLIENT VIEW PREVIEW</strong>
+            <p>You are viewing this project as a client would see it.</p>
+            <small>Preview only - client actions are disabled.</small>
+          </div>
+          <label>
+            Viewing as
+            <select
+              disabled={changingClient}
+              value={contactId || ''}
+              onChange={(e) =>
+                startClientChange(() =>
+                  router.push(
+                    `${base}/${section}${e.target.value ? '?contactId=' + encodeURIComponent(e.target.value) : ''}`,
+                  ),
+                )
+              }
+            >
+              <option value="">General Client View</option>
+              {data?.preview?.clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div>
+            <Link href={`/projects/${projectId}`} target="_blank" rel="noopener noreferrer">
+              Return to Internal View
+            </Link>
+            <br />
+            <Link
+              href={`/projects/${projectId}/${destinations[section] || 'clients'}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Manage Client Visibility
+            </Link>
+          </div>
+          {!contactId && (
+            <small>
+              General view excludes individually addressed documents and discussions. Choose a
+              client to preview their content.
+            </small>
+          )}
+        </aside>
+      )}
       <header className="client-header">
-        <Link href="/client">
+        <Link href={preview ? base + suffix : '/client'}>
           <Brand />
         </Link>
         <span>Your project, together.</span>
-        <Link href="/client/help">Help</Link>
-        <ActionButton
-          action={async () => {
-            await api('auth/logout', {});
-            router.push('/login');
-            router.refresh();
-          }}
+        <Link
+          href={preview ? '/how-to/clients/client-vision' : '/client/help'}
+          target={preview ? '_blank' : undefined}
+          rel="noopener noreferrer"
         >
-          Sign out
-        </ActionButton>
+          Help
+        </Link>
+        {!preview && (
+          <ActionButton
+            action={async () => {
+              await api('auth/logout', {});
+              router.push('/login');
+              router.refresh();
+            }}
+          >
+            Sign out
+          </ActionButton>
+        )}
       </header>
       {!projectId ? (
         <main className="client-main">
@@ -90,12 +170,17 @@ export function ClientPortal({
         </main>
       ) : (
         <>
-          <nav className="client-nav" aria-label="Client project navigation">
+          <nav
+            className="client-nav"
+            aria-label="Client project navigation"
+            aria-busy={changingClient}
+            inert={changingClient}
+          >
             {sections.map((s) => (
               <Link
                 key={s}
                 className={s === section ? 'active' : ''}
-                href={`/client/projects/${projectId}/${s === 'home' ? '' : s}`}
+                href={`${base}/${s === 'home' ? '' : s}${suffix}`}
               >
                 {s.replace('-', ' ')}
               </Link>
@@ -106,7 +191,17 @@ export function ClientPortal({
             {!data && !error ? (
               <Loading />
             ) : (
-              data && <PortalContent data={data} section={section} refresh={refresh} />
+              data &&
+              !error && (
+                <PortalContent
+                  data={data}
+                  section={section}
+                  refresh={refresh}
+                  preview={preview}
+                  base={base}
+                  suffix={suffix}
+                />
+              )
             )}
           </main>
         </>
@@ -122,13 +217,20 @@ export function PortalContent({
   section,
   refresh,
   preview = false,
+  base,
+  suffix = '',
 }: {
+  base?: string;
+  suffix?: string;
   data: PortalData;
   section: string;
   refresh: () => void;
   preview?: boolean;
 }) {
   const projectId = data.project.id;
+  const path = base || `/client/projects/${projectId}`;
+  const fileUrl = (id: string) =>
+    `/api/files/${id}${preview ? '?clientPreview=' + encodeURIComponent(projectId) : ''}`;
   const pending = data.selections.filter((s) => s.status === 'PUBLISHED');
   const changes = data.changeOrders.filter((c) => c.status === 'ISSUED');
   return (
@@ -138,7 +240,10 @@ export function PortalContent({
           {data.project.number} · {data.project.stage || 'YOUR PROJECT'}
         </span>
         <h1>{data.project.name}</h1>
-        {preview && <strong>Client preview — actions disabled</strong>}
+        <p>{data.project.address}</p>
+        {data.managers.map((manager) => (
+          <p key={manager.name}>Your Cedar Winds contact: {manager.name}</p>
+        ))}
       </div>
       {section === 'home' && (
         <>
@@ -156,20 +261,20 @@ export function PortalContent({
             ) : (
               <>
                 {pending.map((s) => (
-                  <Link key={s.id} href={`/client/projects/${projectId}/selections`}>
+                  <Link key={s.id} href={`${path}/selections${suffix}`}>
                     {s.title}
                     <span>{deadline(s.deadline)}</span>
                   </Link>
                 ))}
                 {changes.map((c) => (
-                  <Link key={c.id} href={`/client/projects/${projectId}/change-orders`}>
+                  <Link key={c.id} href={`${path}/change-orders${suffix}`}>
                     {c.document.number} — {c.document.title}
                     <span>Approval requested</span>
                   </Link>
                 ))}
               </>
             )}
-            <Link href={`/client/projects/${projectId}/messages`}>Messages from your team →</Link>
+            <Link href={`${path}/messages${suffix}`}>Messages from your team →</Link>
           </section>
           <div className="client-grid">
             <section className="client-card">
@@ -186,6 +291,22 @@ export function PortalContent({
                 ))}
             </section>
             <section className="client-card">
+              <h2>Completed milestones</h2>
+              {data.schedule
+                .filter((t) => t.milestone && t.status === 'COMPLETE')
+                .slice(-3)
+                .map((t) => (
+                  <p key={t.id}>
+                    <strong>{t.clientTitle}</strong>
+                    <br />
+                    {date(t.endDate)}
+                  </p>
+                ))}
+              {!data.schedule.some((t) => t.milestone && t.status === 'COMPLETE') && (
+                <p>Completed milestones will appear here as your project progresses.</p>
+              )}
+            </section>
+            <section className="client-card">
               <h2>Latest update</h2>
               {data.updates.slice(0, 1).map((u) => (
                 <div key={u.id}>
@@ -195,7 +316,32 @@ export function PortalContent({
               ))}
             </section>
           </div>
-          {!preview && <ClientInbox projectId={projectId} />}
+          {data.financialSummary && (
+            <section className="client-card client-contract">
+              <h2>Your contract</h2>
+              <div className="client-grid">
+                <div>
+                  <h3>Original contract</h3>
+                  <ClientPrice value={data.financialSummary.original} />
+                </div>
+                <div>
+                  <h3>Approved changes</h3>
+                  <ClientPrice value={data.financialSummary.approvedChanges} />
+                </div>
+                <div>
+                  <h3>Current contract</h3>
+                  <ClientPrice value={data.financialSummary.current} />
+                </div>
+              </div>
+            </section>
+          )}
+          <ClientInbox
+            data={data}
+            preview={preview}
+            path={path}
+            suffix={suffix}
+            refresh={refresh}
+          />
           <div className="client-grid">
             {data.files
               .filter(
@@ -205,10 +351,10 @@ export function PortalContent({
               )
               .slice(0, 3)
               .map((f) => (
-                <a className="client-card" href={`/api/files/${f.id}`} key={f.id}>
+                <a className="client-card" href={fileUrl(f.id)} key={f.id}>
                   <img
                     className="client-photo"
-                    src={`/api/files/${f.id}`}
+                    src={fileUrl(f.id)}
                     alt={f.caption || f.originalFilename}
                   />
                   <p>{f.caption || f.originalFilename}</p>
@@ -257,14 +403,14 @@ export function PortalContent({
                 <a
                   className="client-card"
                   key={f.id}
-                  href={`/api/files/${f.id}`}
+                  href={fileUrl(f.id)}
                   target="_blank"
                   rel="noreferrer"
                 >
                   {section === 'photos' &&
                     ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(f.mimeType) && (
                       <img
-                        src={`/api/files/${f.id}`}
+                        src={fileUrl(f.id)}
                         alt={f.caption || f.originalFilename}
                         className="client-photo"
                       />
@@ -277,6 +423,45 @@ export function PortalContent({
                 </a>
               ))}
           </div>
+        </>
+      )}
+      {section === 'proposals' && (
+        <>
+          <h2>Your proposals</h2>
+          {data.proposals.length === 0 && <p>No proposals have been shared with this view yet.</p>}
+          {data.proposals.map((p) => (
+            <article className="client-card" key={p.id}>
+              <small>
+                {p.number} | Rev {p.revision} | {p.status}
+              </small>
+              <h2>{p.title}</h2>
+              <p>{p.introduction}</p>
+              <p className="preserve-text">{p.scope}</p>
+              {p.sections.map((section, i) => (
+                <section key={i}>
+                  <h3>{section.name}</h3>
+                  <p>{section.description}</p>
+                  <ul>
+                    {section.lines.map((l, j) => (
+                      <li key={j}>
+                        {l.description} - {l.quantity} {l.unit}
+                        {data.presentation.taxDisplayMode === 'SHOW_TAX_BREAKDOWN' && (
+                          <> - {dollars(l.price)} before tax</>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+              <ClientPrice value={p.price} />
+              <h3>Assumptions and exclusions</h3>
+              <p className="preserve-text">{p.assumptions}</p>
+              <p className="preserve-text">{p.exclusions}</p>
+              <h3>Terms</h3>
+              <p className="preserve-text">{p.terms}</p>
+              {p.acceptedAt && <p>Accepted {date(p.acceptedAt)}</p>}
+            </article>
+          ))}
         </>
       )}
       {section === 'selections' && (
@@ -316,11 +501,19 @@ export function PortalContent({
               projectId={projectId}
               refresh={refresh}
               preview={preview}
+              taxMode={c.document.taxDisplayMode}
             />
           ))}
         </>
       )}
-      {section === 'messages' && !preview && <ProjectMessages projectId={projectId} client />}
+      {section === 'messages' && (
+        <ProjectMessages
+          projectId={projectId}
+          client
+          preview={preview}
+          previewThreads={data.conversations}
+        />
+      )}
     </>
   );
 }
@@ -345,47 +538,63 @@ function deadline(value: string | null) {
         ? 'Due tomorrow'
         : `Due ${date(value)}`;
 }
-function ClientInbox({ projectId }: { projectId: string }) {
-  const { data, error, refresh } = useApi<{
-    notifications: {
-      id: string;
-      title: string;
-      message: string;
-      readAt: string | null;
-      createdAt: string;
-    }[];
-  }>(`client/notifications?projectId=${projectId}`);
-  const messages = useApi<{ conversations: { id: string; subject: string; unread: boolean }[] }>(
-    `client/messages?projectId=${projectId}`,
+export function ClientPrice({
+  value,
+}: {
+  value: { total: string; subtotal?: string; tax?: string };
+}) {
+  return (
+    <div className="client-price">
+      {value.subtotal !== undefined && (
+        <>
+          <p>Subtotal: {dollars(value.subtotal)}</p>
+          <p>HST: {dollars(value.tax || '0')}</p>
+        </>
+      )}
+      <strong>Total: {dollars(value.total)}</strong>
+    </div>
   );
+}
+function ClientInbox({
+  data,
+  preview,
+  path,
+  suffix,
+  refresh,
+}: {
+  data: PortalData;
+  preview: boolean;
+  path: string;
+  suffix: string;
+  refresh: () => void;
+}) {
+  const notices = data.notifications.filter((n) => !n.readAt);
+  const messages = data.conversations.filter((c) => c.unread);
   return (
     <section className="client-card">
       <h2>From your team</h2>
-      <ErrorBox message={error} />
-      {messages.data?.conversations
-        .filter((c) => c.unread)
-        .map((c) => (
-          <p key={c.id}>
-            <Link href={`/client/projects/${projectId}/messages`}>Unread message: {c.subject}</Link>
-          </p>
-        ))}
-      {data?.notifications
-        .filter((n) => !n.readAt)
-        .map((n) => (
-          <div className="client-message" key={n.id}>
-            <strong>{n.title}</strong>
-            <p>{n.message}</p>
-            <ActionButton
-              action={async () => {
-                await api('client/notification-read', { projectId, id: n.id });
-                refresh();
-              }}
-            >
-              Mark read
-            </ActionButton>
-          </div>
-        ))}
-      {data?.notifications.every((n) => n.readAt) && <p>No unread notices.</p>}
+      {messages.map((c) => (
+        <p key={c.id}>
+          <Link href={`${path}/messages${suffix}`}>Unread message: {c.subject}</Link>
+        </p>
+      ))}
+      {notices.map((n) => (
+        <div className="client-message" key={n.id}>
+          <strong>{n.title}</strong>
+          <p>{n.message}</p>
+          <ActionButton
+            disabled={preview}
+            action={async () => {
+              if (preview) return;
+              await api('client/notification-read', { projectId: data.project.id, id: n.id });
+              refresh();
+            }}
+          >
+            {preview ? 'Mark read - Preview only' : 'Mark read'}
+          </ActionButton>
+        </div>
+      ))}
+      {!notices.length && !messages.length && <p>No unread notices.</p>}
     </section>
   );
 }
@@ -402,6 +611,8 @@ function SelectionCard({
   refresh: () => void;
   preview: boolean;
 }) {
+  const fileUrl = (id: string) =>
+    `/api/files/${id}${preview ? '?clientPreview=' + encodeURIComponent(projectId) : ''}`;
   const [chosen, setChosen] = useState(''),
     [comments, setComments] = useState(''),
     [confirm, setConfirm] = useState(false);
@@ -456,7 +667,7 @@ function SelectionCard({
             {o.attachmentIds.map((id) => (
               <a
                 className="client-file-link"
-                href={`/api/files/${id}`}
+                href={fileUrl(id)}
                 target="_blank"
                 rel="noreferrer"
                 key={id}
@@ -466,7 +677,7 @@ function SelectionCard({
                 ) && (
                   <img
                     className="client-photo"
-                    src={`/api/files/${id}`}
+                    src={fileUrl(id)}
                     alt={files.find((f) => f.id === id)?.caption || o.name}
                   />
                 )}
@@ -476,6 +687,9 @@ function SelectionCard({
           </label>
         ))}
       </div>
+      {s.status === 'PUBLISHED' && preview && (
+        <button disabled>Confirm selection - Preview only</button>
+      )}
       {s.status === 'PUBLISHED' && !preview && (
         <>
           <label>
@@ -533,7 +747,9 @@ function ChangeCard({
   projectId,
   refresh,
   preview,
+  taxMode,
 }: {
+  taxMode: ClientTaxDisplayMode;
   change: PortalData['changeOrders'][number];
   projectId: string;
   refresh: () => void;
@@ -543,7 +759,10 @@ function ChangeCard({
     [ack, setAck] = useState(false),
     [printing, setPrinting] = useState(false);
   const d = c.document;
+  const fileUrl = (id: string) =>
+    `/api/files/${id}${preview ? '?clientPreview=' + encodeURIComponent(projectId) : ''}`;
   async function decide(action: 'APPROVE' | 'DECLINE') {
+    if (preview) return;
     await api('client/change-order-approval', {
       projectId,
       revisionId: c.id,
@@ -566,7 +785,7 @@ function ChangeCard({
           <tr>
             <th>Scope</th>
             <th>Quantity</th>
-            <th>Amount</th>
+            {taxMode === 'SHOW_TAX_BREAKDOWN' && <th>Client price before tax</th>}
           </tr>
         </thead>
         <tbody>
@@ -576,22 +795,24 @@ function ChangeCard({
               <td>
                 {l.quantity} {l.unit}
               </td>
-              <td>{dollars(l.amount)}</td>
+              {taxMode === 'SHOW_TAX_BREAKDOWN' && <td>{dollars(l.amount)}</td>}
             </tr>
           ))}
         </tbody>
       </table>
-      <p>
-        Subtotal: {dollars(d.subtotal)} · HST: {dollars(d.tax)}
-        <br />
-        <strong>Total: {dollars(d.total)}</strong>
-      </p>
+      <ClientPrice
+        value={
+          taxMode === 'SHOW_TAX_BREAKDOWN'
+            ? { subtotal: d.subtotal, tax: d.tax, total: d.total }
+            : { total: d.total }
+        }
+      />
       <p>
         Schedule impact: {d.scheduleDays} days · Issued {date(d.issuedAt)}
       </p>
       <p className="preserve-text">{d.terms}</p>
       {c.attachmentIds.map((id) => (
-        <a className="client-file-link" href={`/api/files/${id}`} key={id}>
+        <a className="client-file-link" href={fileUrl(id)} key={id}>
           Supporting document
         </a>
       ))}
@@ -608,6 +829,12 @@ function ChangeCard({
           Print change order
         </button>
       </div>
+      {c.status === 'ISSUED' && preview && (
+        <div className="button-row">
+          <button disabled>Approve - Preview only</button>
+          <button disabled>Decline - Preview only</button>
+        </div>
+      )}
       {c.status === 'ISSUED' && !preview && (
         <div className="no-print">
           <label>
@@ -682,7 +909,7 @@ function DiscussionButton({
 type Thread = {
   id: string;
   subject: string;
-  audience: string;
+  audience?: string;
   unread: boolean;
   messages: {
     id: string;
@@ -694,13 +921,17 @@ type Thread = {
 export function ProjectMessages({
   projectId,
   client = false,
+  preview = false,
+  previewThreads = [],
 }: {
   projectId: string;
   client?: boolean;
+  preview?: boolean;
+  previewThreads?: Thread[];
 }) {
   const prefix = client ? 'client' : 'client-management';
   const { data, error, refresh } = useApi<{ conversations: Thread[] }>(
-    `${prefix}/messages?projectId=${projectId}`,
+    preview ? '' : `${prefix}/messages?projectId=${projectId}`,
   );
   const [subject, setSubject] = useState(''),
     [body, setBody] = useState(''),
@@ -710,7 +941,7 @@ export function ProjectMessages({
     <>
       <h2>Messages</h2>
       <ErrorBox message={error} />
-      {data?.conversations.map((t) => (
+      {(preview ? previewThreads : data?.conversations)?.map((t) => (
         <article className="client-card" key={t.id}>
           <h3>
             {t.subject} {t.unread ? '· New' : ''}
@@ -726,76 +957,82 @@ export function ProjectMessages({
             </div>
           ))}
           <ActionButton
+            disabled={preview}
             action={async () => {
+              if (preview) return;
               setThread(t.id);
               setSubject(t.subject);
               await api(`${prefix}/read`, { projectId, id: t.id });
               refresh();
             }}
           >
-            Reply / mark read
+            {preview ? 'Reply - Preview only' : 'Reply / mark read'}
           </ActionButton>
         </article>
       ))}
-      <section className="client-card">
-        <h3>{thread ? 'Reply' : 'Start a conversation'}</h3>
-        <label>
-          Subject
-          <input
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            maxLength={200}
-            disabled={!!thread}
-          />
-        </label>
-        {!client && !thread && (
+      {preview ? (
+        <p>Client would be able to reply here.</p>
+      ) : (
+        <section className="client-card">
+          <h3>{thread ? 'Reply' : 'Start a conversation'}</h3>
           <label>
-            Audience
-            <select value={audience} onChange={(e) => setAudience(e.target.value)}>
-              <option value="CLIENT">Visible to authorized project clients</option>
-              <option value="INTERNAL">Internal team only</option>
-            </select>
+            Subject
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              maxLength={200}
+              disabled={!!thread}
+            />
           </label>
-        )}
-        <label>
-          Your message
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={10000} />
-        </label>
-        {!client && (
-          <WordingPicker
-            kind="COMMUNICATION"
-            onChoose={(content) => setBody(content.communication)}
-          />
-        )}
-        <ActionButton
-          disabled={!body.trim() || !subject.trim()}
-          action={async () => {
-            await api(`${prefix}/messages`, {
-              projectId,
-              conversationId: thread || null,
-              subject,
-              body,
-              audience,
-            });
-            setBody('');
-            setSubject('');
-            setThread('');
-            refresh();
-          }}
-        >
-          Send message
-        </ActionButton>
-        {thread && (
-          <button
-            onClick={() => {
-              setThread('');
+          {!client && !thread && (
+            <label>
+              Audience
+              <select value={audience} onChange={(e) => setAudience(e.target.value)}>
+                <option value="CLIENT">Visible to authorized project clients</option>
+                <option value="INTERNAL">Internal team only</option>
+              </select>
+            </label>
+          )}
+          <label>
+            Your message
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={10000} />
+          </label>
+          {!client && (
+            <WordingPicker
+              kind="COMMUNICATION"
+              onChoose={(content) => setBody(content.communication)}
+            />
+          )}
+          <ActionButton
+            disabled={!body.trim() || !subject.trim()}
+            action={async () => {
+              await api(`${prefix}/messages`, {
+                projectId,
+                conversationId: thread || null,
+                subject,
+                body,
+                audience,
+              });
+              setBody('');
               setSubject('');
+              setThread('');
+              refresh();
             }}
           >
-            New conversation
-          </button>
-        )}
-      </section>
+            Send message
+          </ActionButton>
+          {thread && (
+            <button
+              onClick={() => {
+                setThread('');
+                setSubject('');
+              }}
+            >
+              New conversation
+            </button>
+          )}
+        </section>
+      )}
     </>
   );
 }

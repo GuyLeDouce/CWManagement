@@ -2,8 +2,8 @@
 import { Specifications } from './specifications';
 import { useState } from 'react';
 import { api, useApi, pretty } from '@/lib/client';
-import { ActionButton, ErrorBox, Loading } from './ui';
-import { PortalContent, PortalData } from './client-portal';
+import { ActionButton, ErrorBox } from './ui';
+
 import { TemplateTools } from './templates';
 
 type Option = {
@@ -526,7 +526,7 @@ export function ClientManagement({ projectId }: { projectId: string }) {
       };
     }[];
   }>(`client-management/access?projectId=${projectId}`);
-  const [preview, setPreview] = useState(false);
+
   return (
     <>
       <h2>Client access & publishing</h2>
@@ -578,36 +578,10 @@ export function ClientManagement({ projectId }: { projectId: string }) {
         </article>
       ))}
       <PublicationEditor projectId={projectId} />
-      <button onClick={() => setPreview(!preview)}>
-        {preview ? 'Close preview' : 'Preview published client content'}
-      </button>
-      {preview && <ClientPreview projectId={projectId} />}
+      <a href={`/client-preview/projects/${projectId}`} target="_blank" rel="noopener noreferrer">
+        Preview Client View
+      </a>
     </>
-  );
-}
-function ClientPreview({ projectId }: { projectId: string }) {
-  const { data, error } = useApi<PortalData>(`client-management/preview?projectId=${projectId}`);
-  const [section, setSection] = useState('home');
-  return (
-    <section className="client-shell">
-      <ErrorBox message={error} />
-      <select
-        aria-label="Preview section"
-        value={section}
-        onChange={(e) => setSection(e.target.value)}
-      >
-        {['home', 'schedule', 'selections', 'change-orders', 'updates', 'photos', 'documents'].map(
-          (s) => (
-            <option key={s}>{s}</option>
-          ),
-        )}
-      </select>
-      {data ? (
-        <PortalContent data={data} section={section} refresh={() => {}} preview />
-      ) : (
-        <Loading />
-      )}
-    </section>
   );
 }
 function PublicationEditor({ projectId }: { projectId: string }) {

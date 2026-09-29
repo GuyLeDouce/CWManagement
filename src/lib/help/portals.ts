@@ -9,7 +9,7 @@ export const clientGuides = [
     steps: [
       'Use your invitation email to set up your password, then sign in at the normal application login.',
       'Choose your project from the welcome page. Only projects Cedar Winds has shared with your account appear.',
-      'Start with Home and Needs your attention, then open Schedule, Selections, Change orders, Updates, Photos, Documents or Messages.',
+      'Start with Home and Needs your attention, then open Schedule, Proposals, Selections, Change orders, Updates, Photos, Documents or Messages.',
       'If a project is missing, contact Cedar Winds to check your invitation. Use Forgot password on the login page for password help.',
     ],
     next: 'New published updates and decisions appear as the team releases them.',
@@ -58,7 +58,7 @@ export const clientGuides = [
     summary: 'Review a proposed change to scope, price and any stated schedule impact.',
     when: 'A Change Order appears for your approval.',
     steps: [
-      'Open Change orders and read the number/revision, scope, attachments, subtotal, HST, total and schedule impact.',
+      'Open Change orders and read the number/revision, scope, attachments, final total and schedule impact. Depending on your project settings, a separate subtotal and HST breakdown may also appear.',
       'Ask a question through the discussion/message action if anything is unclear.',
       'When ready, enter your typed name and acknowledgement as requested and choose Approve.',
       'If you do not agree, use the available decline/discussion action and explain the concern. Wait for confirmation.',

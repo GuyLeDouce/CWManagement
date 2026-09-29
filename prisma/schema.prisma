@@ -249,6 +249,7 @@ enum Capability {
   TRADE_MESSAGE_SEND
   CLIENT_ACCESS_MANAGE
   CLIENT_CONTENT_PUBLISH
+  CLIENT_PREVIEW
   SELECTION_VIEW
   SELECTION_CREATE
   SELECTION_EDIT
@@ -623,65 +624,73 @@ model PmJobsite {
   @@id([pmId, jobsiteId])
 }
 
+enum ClientTaxDisplayMode {
+  FINAL_TOTAL_ONLY
+  SHOW_TAX_BREAKDOWN
+}
+
 model Project {
-  specifications         ProjectSpecification[]
-  templateApplications   TemplateApplication[]
-  setupDefaults          Json                    @default("{}")
-  tradeAccess            TradeProjectAccess[]
-  siteInstructions       SiteInstruction[]
-  deficiencies           Deficiency[]
-  tradeAcknowledgements  TradeAcknowledgement[]
-  portalAccess           ClientProjectAccess[]
-  allowances             Allowance[]
-  selections             Selection[]
-  conversations          Conversation[]
-  clientTargetCompletion DateTime?               @db.Date
-  purchasingDocuments    PurchasingDocument[]
-  changeOrders           ChangeOrder[]
-  contractAdjustments    ContractAdjustment[]
-  id                     String                  @id @default(cuid())
-  name                   String
-  number                 String                  @unique
-  address                String?
-  overhead               Boolean                 @default(false)
-  active                 Boolean                 @default(true)
-  employees              EmployeeJobsite[]
-  managers               PmJobsite[]
-  tasks                  JobsiteTask[]
-  mappings               AccountingMapping[]
-  segments               TimeSegment[]
-  visits                 SiteVisit[]
-  trucks                 Truck[]
-  description            String?
-  projectType            String?
-  status                 ProjectStatus           @default(ACTIVE)
-  stage                  String?
-  municipality           String?
-  province               String?                 @default("ON")
-  postalCode             String?
-  startDate              DateTime?               @db.Date
-  targetCompletion       DateTime?               @db.Date
-  actualCompletion       DateTime?               @db.Date
-  contractAmount         Decimal?                @db.Decimal(14, 2)
-  internalNotes          String?
-  clientVisibleNotes     String?
-  archivedAt             DateTime?               @db.Timestamptz(3)
-  createdAt              DateTime                @default(now()) @db.Timestamptz(3)
-  updatedAt              DateTime                @updatedAt @db.Timestamptz(3)
-  assignments            ProjectAssignment[]
-  contacts               ProjectContact[]
-  syncMappings           AccountingSyncMapping[]
-  scheduleTasks          ProjectTask[]
-  dailyLogs              DailyLog[]
-  files                  StoredFile[]
-  notifications          Notification[]
-  activity               AuditLog[]
-  estimates              Estimate[]
-  proposals              Proposal[]
-  budgets                Budget[]
-  commitments            Commitment[]
-  actualCosts            ActualCost[]
-  forecastAdjustments    ForecastAdjustment[]
+  clientTaxDisplayMode          ClientTaxDisplayMode?
+  clientFinancialSummaryEnabled Boolean?
+  clientManagerVisible          Boolean?
+  specifications                ProjectSpecification[]
+  templateApplications          TemplateApplication[]
+  setupDefaults                 Json                    @default("{}")
+  tradeAccess                   TradeProjectAccess[]
+  siteInstructions              SiteInstruction[]
+  deficiencies                  Deficiency[]
+  tradeAcknowledgements         TradeAcknowledgement[]
+  portalAccess                  ClientProjectAccess[]
+  allowances                    Allowance[]
+  selections                    Selection[]
+  conversations                 Conversation[]
+  clientTargetCompletion        DateTime?               @db.Date
+  purchasingDocuments           PurchasingDocument[]
+  changeOrders                  ChangeOrder[]
+  contractAdjustments           ContractAdjustment[]
+  id                            String                  @id @default(cuid())
+  name                          String
+  number                        String                  @unique
+  address                       String?
+  overhead                      Boolean                 @default(false)
+  active                        Boolean                 @default(true)
+  employees                     EmployeeJobsite[]
+  managers                      PmJobsite[]
+  tasks                         JobsiteTask[]
+  mappings                      AccountingMapping[]
+  segments                      TimeSegment[]
+  visits                        SiteVisit[]
+  trucks                        Truck[]
+  description                   String?
+  projectType                   String?
+  status                        ProjectStatus           @default(ACTIVE)
+  stage                         String?
+  municipality                  String?
+  province                      String?                 @default("ON")
+  postalCode                    String?
+  startDate                     DateTime?               @db.Date
+  targetCompletion              DateTime?               @db.Date
+  actualCompletion              DateTime?               @db.Date
+  contractAmount                Decimal?                @db.Decimal(14, 2)
+  internalNotes                 String?
+  clientVisibleNotes            String?
+  archivedAt                    DateTime?               @db.Timestamptz(3)
+  createdAt                     DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt                     DateTime                @updatedAt @db.Timestamptz(3)
+  assignments                   ProjectAssignment[]
+  contacts                      ProjectContact[]
+  syncMappings                  AccountingSyncMapping[]
+  scheduleTasks                 ProjectTask[]
+  dailyLogs                     DailyLog[]
+  files                         StoredFile[]
+  notifications                 Notification[]
+  activity                      AuditLog[]
+  estimates                     Estimate[]
+  proposals                     Proposal[]
+  budgets                       Budget[]
+  commitments                   Commitment[]
+  actualCosts                   ActualCost[]
+  forecastAdjustments           ForecastAdjustment[]
 
   @@map("Jobsite")
 }
@@ -1699,33 +1708,36 @@ model ExportItem {
 }
 
 model Settings {
-  defaultProvince           String       @default("ON")
-  defaultMarkupMethod       MarkupMethod @default(NONE)
-  defaultMarkupValue        Decimal      @default(0) @db.Decimal(18, 4)
-  siteInstructionPrefix     String       @default("SI-")
-  nextSiteInstructionNumber Int          @default(1)
-  deficiencyPrefix          String       @default("DEF-")
-  nextDeficiencyNumber      Int          @default(1)
-  purchaseOrderPrefix       String       @default("PO")
-  nextPurchaseOrderNumber   Int          @default(1)
-  workOrderPrefix           String       @default("WO")
-  nextWorkOrderNumber       Int          @default(1)
-  changeOrderPrefix         String       @default("CO")
-  nextChangeOrderNumber     Int          @default(1)
-  purchasingTerms           String       @default("")
-  changeOrderTerms          String       @default("")
-  id                        String       @id @default("company")
-  timezone                  String       @default("America/Toronto")
-  reportRecipient           String       @default("")
-  weekStartsOn              Int          @default(1)
-  taxRate                   Decimal      @default(0.13) @db.Decimal(7, 6)
-  estimatePrefix            String       @default("EST")
-  proposalPrefix            String       @default("P")
-  nextEstimateNumber        Int          @default(1)
-  nextProposalNumber        Int          @default(1)
-  legalName                 String       @default("Cedar Winds Design~Build")
-  companyAddress            String       @default("")
-  proposalTerms             String       @default("")
+  clientTaxDisplayMode          ClientTaxDisplayMode @default(FINAL_TOTAL_ONLY)
+  clientFinancialSummaryEnabled Boolean              @default(true)
+  clientManagerVisible          Boolean              @default(false)
+  defaultProvince               String               @default("ON")
+  defaultMarkupMethod           MarkupMethod         @default(NONE)
+  defaultMarkupValue            Decimal              @default(0) @db.Decimal(18, 4)
+  siteInstructionPrefix         String               @default("SI-")
+  nextSiteInstructionNumber     Int                  @default(1)
+  deficiencyPrefix              String               @default("DEF-")
+  nextDeficiencyNumber          Int                  @default(1)
+  purchaseOrderPrefix           String               @default("PO")
+  nextPurchaseOrderNumber       Int                  @default(1)
+  workOrderPrefix               String               @default("WO")
+  nextWorkOrderNumber           Int                  @default(1)
+  changeOrderPrefix             String               @default("CO")
+  nextChangeOrderNumber         Int                  @default(1)
+  purchasingTerms               String               @default("")
+  changeOrderTerms              String               @default("")
+  id                            String               @id @default("company")
+  timezone                      String               @default("America/Toronto")
+  reportRecipient               String               @default("")
+  weekStartsOn                  Int                  @default(1)
+  taxRate                       Decimal              @default(0.13) @db.Decimal(7, 6)
+  estimatePrefix                String               @default("EST")
+  proposalPrefix                String               @default("P")
+  nextEstimateNumber            Int                  @default(1)
+  nextProposalNumber            Int                  @default(1)
+  legalName                     String               @default("Cedar Winds Design~Build")
+  companyAddress                String               @default("")
+  proposalTerms                 String               @default("")
 }
 
 enum CompanyTemplateKind {

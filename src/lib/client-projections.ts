@@ -1,9 +1,12 @@
-import { Prisma } from '@prisma/client';
+import { ClientTaxDisplayMode, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { db, Tx, transaction } from './db';
 import { Actor } from './permissions';
 import { requireClientProjectAccess } from './client-access';
+import { clientPreferences } from './client-preferences';
+import { clientContractSummary, clientPrice } from './client-pricing';
+import { clientConversations } from './client-messages';
 import { selectionVariance } from './financial-math';
 export { selectionVariance } from './financial-math';
 
@@ -87,6 +90,7 @@ export function changeOrderProjection(
     clientApproval?: { snapshot: Prisma.JsonValue } | null;
   },
   visibleFileIds: string[] = [],
+  taxDisplayMode: ClientTaxDisplayMode = 'FINAL_TOTAL_ONLY',
 ) {
   const source = item.clientApproval?.snapshot ?? item.snapshot;
   const refs = z
@@ -94,6 +98,10 @@ export function changeOrderProjection(
     .parse(source);
   const document = {
     ...clientChangeOrderSnapshot.parse(source),
+    taxDisplayMode:
+      z
+        .object({ taxDisplayMode: z.enum(['FINAL_TOTAL_ONLY', 'SHOW_TAX_BREAKDOWN']).optional() })
+        .parse(source).taxDisplayMode ?? taxDisplayMode,
     attachments: refs.attachments.filter((f) => visibleFileIds.includes(f.id)),
   };
   return {
@@ -123,7 +131,13 @@ export async function clientProjects(actor: Actor) {
     select: { id: true, name: true, number: true, stage: true },
   });
 }
-export async function projectProjection(tx: Tx, projectId: string, contactId?: string) {
+export async function projectProjection(
+  tx: Tx,
+  projectId: string,
+  contactId?: string,
+  userId?: string,
+) {
+  const { effective: preferences } = await clientPreferences(tx, projectId);
   const project = await tx.project.findUniqueOrThrow({
     where: { id: projectId },
     select: {
@@ -133,6 +147,8 @@ export async function projectProjection(tx: Tx, projectId: string, contactId?: s
       stage: true,
       clientVisibleNotes: true,
       clientTargetCompletion: true,
+      address: true,
+      status: true,
     },
   });
   const schedule = await tx.projectTask.findMany({
@@ -169,7 +185,7 @@ export async function projectProjection(tx: Tx, projectId: string, contactId?: s
       changeOrder: { projectId },
       issuedAt: { not: null },
       status: { in: ['ISSUED', 'ACCEPTED', 'REJECTED', 'SUPERSEDED'] },
-      ...(contactId ? { clientId: contactId } : {}),
+      clientId: contactId ?? '__general_preview_no_recipient__',
     },
     select: {
       id: true,
@@ -188,7 +204,81 @@ export async function projectProjection(tx: Tx, projectId: string, contactId?: s
     select: { id: true, title: true, category: true, description: true, updatedAt: true },
     orderBy: [{ category: 'asc' }, { title: 'asc' }],
   });
+  const proposals = await tx.proposalRevision.findMany({
+    where: {
+      proposal: { projectId },
+      status: { in: ['ISSUED', 'ACCEPTED', 'SUPERSEDED'] },
+      issueDate: { not: null },
+      OR: [{ clientId: null }, ...(contactId ? [{ clientId: contactId }] : [])],
+    },
+    select: {
+      id: true,
+      revision: true,
+      status: true,
+      issueDate: true,
+      acceptedAt: true,
+      introduction: true,
+      scope: true,
+      exclusions: true,
+      assumptions: true,
+      terms: true,
+      projectNameSnapshot: true,
+      sectionsSnapshot: true,
+      subtotal: true,
+      taxAmount: true,
+      total: true,
+      proposal: { select: { proposalNumber: true, title: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  const sectionSchema = z.array(
+    z.object({
+      name: z.string(),
+      description: text,
+      lines: z.array(
+        z.object({ description: z.string(), quantity: z.string(), unit: text, price: z.string() }),
+      ),
+    }),
+  );
+  const managers = preferences.clientManagerVisible
+    ? await tx.projectAssignment.findMany({
+        where: { projectId, role: 'PRIMARY_PROJECT_MANAGER', user: { active: true } },
+        select: { user: { select: { firstName: true, lastName: true } } },
+      })
+    : [];
+  const notifications = userId
+    ? await tx.notification.findMany({
+        where: { userId, projectId, actionUrl: { startsWith: '/client' } },
+        select: { id: true, title: true, message: true, readAt: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      })
+    : [];
   return {
+    presentation: { taxDisplayMode: preferences.clientTaxDisplayMode },
+    managers: managers.map((m) => ({ name: `${m.user.firstName} ${m.user.lastName}` })),
+    financialSummary: preferences.clientFinancialSummaryEnabled
+      ? await clientContractSummary(tx, projectId, contactId, preferences.clientTaxDisplayMode)
+      : null,
+    proposals: proposals.map((p) => ({
+      id: p.id,
+      number: p.proposal.proposalNumber,
+      title: p.proposal.title,
+      revision: p.revision,
+      status: p.status,
+      issueDate: p.issueDate,
+      acceptedAt: p.acceptedAt,
+      projectName: p.projectNameSnapshot,
+      introduction: p.introduction,
+      scope: p.scope,
+      exclusions: p.exclusions,
+      assumptions: p.assumptions,
+      terms: p.terms,
+      sections: sectionSchema.parse(p.sectionsSnapshot),
+      price: clientPrice(p.subtotal, p.taxAmount, p.total, preferences.clientTaxDisplayMode),
+    })),
+    conversations: await clientConversations(tx, projectId, contactId, userId),
+    notifications,
     specifications,
     project,
     schedule,
@@ -196,6 +286,17 @@ export async function projectProjection(tx: Tx, projectId: string, contactId?: s
     files,
     selections: selections.map((s) => ({
       ...s,
+      decisions: s.decisions.map(({ snapshot, ...decision }) => ({
+        ...decision,
+        snapshot: z
+          .object({
+            title: z.string(),
+            selectedPrice: z.string(),
+            allowance: z.string(),
+            variance: z.string(),
+          })
+          .parse(snapshot),
+      })),
       options: s.options.map((o) => ({
         ...o,
         attachmentIds: o.attachmentIds.filter((id) => fileIds.has(id)),
@@ -203,7 +304,7 @@ export async function projectProjection(tx: Tx, projectId: string, contactId?: s
       })),
     })),
     changeOrders: changes.map((c) => {
-      const projected = changeOrderProjection(c, [...fileIds]);
+      const projected = changeOrderProjection(c, [...fileIds], preferences.clientTaxDisplayMode);
       return { ...projected, attachmentIds: projected.document.attachments.map((f) => f.id) };
     }),
   };
@@ -211,7 +312,7 @@ export async function projectProjection(tx: Tx, projectId: string, contactId?: s
 export async function clientProject(actor: Actor, projectId: string) {
   return transaction(async (tx) => {
     const grant = await requireClientProjectAccess(actor, projectId, tx);
-    return projectProjection(tx, projectId, grant.contactId);
+    return projectProjection(tx, projectId, grant.contactId, actor.id);
   });
 }
 export type ClientProject = Awaited<ReturnType<typeof projectProjection>>;

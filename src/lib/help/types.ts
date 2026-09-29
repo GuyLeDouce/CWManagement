@@ -18,6 +18,7 @@ export type HelpArticle = {
   sections: HelpSection[];
 };
 export type GuideInput = {
+  updated?: string;
   id: string;
   title: string;
   summary: string;
@@ -40,7 +41,7 @@ export function guide(category: string, g: GuideInput): HelpArticle {
     summary: g.summary,
     keywords: g.keywords || [],
     roles: g.roles || [],
-    updated: '2026-09-28',
+    updated: g.updated || '2026-09-28',
     related: g.related || [],
     destination: g.destination,
     sections: [

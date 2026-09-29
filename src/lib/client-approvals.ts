@@ -1,3 +1,4 @@
+import { clientPreferences } from './client-preferences';
 import { z } from 'zod';
 import { transaction, json } from './db';
 import { Actor } from './permissions';
@@ -44,6 +45,7 @@ export async function approveClientChangeOrder(
     const display = changeOrderProjection(
       item,
       files.map((f) => f.id),
+      (await clientPreferences(tx, input.projectId)).effective.clientTaxDisplayMode,
     );
     ensure(
       display.documentHash === input.documentHash,

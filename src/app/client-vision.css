@@ -1,0 +1,88 @@
+.client-vision-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  padding: 10px 14px;
+  border-radius: 6px;
+  white-space: nowrap;
+  color: var(--green);
+  text-decoration: none;
+}
+.client-preview-banner {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #e7eee6;
+  border-bottom: 1px solid #bccbb8;
+  padding: 14px max(20px, calc((100vw - 1180px) / 2));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  color: #243c2c;
+}
+.client-preview-banner strong {
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+}
+.client-preview-banner p {
+  margin: 5px 0;
+}
+.client-preview-banner label {
+  font-size: 0.8rem;
+  min-width: 180px;
+}
+.client-preview-banner a {
+  font-size: 0.85rem;
+  line-height: 1.8;
+}
+.client-preview-banner > small {
+  flex-basis: 100%;
+}
+.client-price {
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+}
+.client-price p {
+  margin: 3px 0;
+}
+.client-price strong {
+  font-size: 1.25rem;
+}
+.client-contract {
+  margin: 24px 0;
+}
+@media (max-width: 640px) {
+  .client-vision-button span {
+    display: none;
+  }
+  .client-preview-banner {
+    gap: 8px;
+    padding: 10px 16px;
+  }
+  .client-preview-banner > div:first-child p {
+    display: none;
+  }
+  .client-preview-banner > div:nth-of-type(2) {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .client-preview-banner > div:nth-of-type(2) br {
+    display: none;
+  }
+  .client-preview-banner label {
+    width: 100%;
+  }
+}
+@media print {
+  .client-preview-banner {
+    position: static;
+  }
+  .client-preview-banner a,
+  .client-preview-banner label {
+    display: none;
+  }
+}

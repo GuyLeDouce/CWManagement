@@ -1,9 +1,15 @@
+import {
+  clientPreview,
+  viewClientPreferences,
+  saveClientPreferences,
+  clientPreferencesSchema,
+} from './client-vision';
 import { ensureTradeFileMutable } from './trade-access';
 import { z } from 'zod';
 import { Actor, requireCapability, requireProjectAccess } from './permissions';
 import { db, transaction } from './db';
 import { ensure, AppError } from './errors';
-import { clientProject, clientProjects, projectProjection } from './client-projections';
+import { clientProject, clientProjects } from './client-projections';
 import { requireClientProjectAccess, manageClientAccess } from './client-access';
 import {
   decideSelection,
@@ -196,6 +202,10 @@ export async function dispatchClientManagement(
   params: Record<string, string>,
   body: unknown,
 ) {
+  if (path === 'view-settings')
+    return get
+      ? viewClientPreferences(actor, params.projectId)
+      : saveClientPreferences(actor, clientPreferencesSchema.parse(body));
   if (get) {
     const projectId = identifier.parse(params.projectId);
     if (path === 'selections') return internalSelections(actor, projectId);
@@ -223,11 +233,7 @@ export async function dispatchClientManagement(
       };
     }
     if (path === 'messages') return { conversations: await conversations(actor, projectId) };
-    if (path === 'preview') {
-      await requireCapability(actor, 'CLIENT_CONTENT_PUBLISH');
-      await requireProjectAccess(actor, projectId);
-      return projectProjection(db, projectId);
-    }
+    if (path === 'preview') return clientPreview(actor, projectId, params.contactId || undefined);
     if (path === 'access') {
       await requireCapability(actor, 'CLIENT_ACCESS_MANAGE');
       await requireProjectAccess(actor, projectId);

@@ -70,3 +70,7 @@ Migration `202609240004_quickbooks_desktop` adds QuickBooksConnection, QuickBook
 ## Productization additions
 
 `202609280002_company_standards` adds CompanyTemplate, TemplateApplication and CostCatalogItem, four capabilities, project setup-default snapshots and company province/markup defaults. `202609280003_standards_safety` adds ProjectSpecification with explicit client visibility and optimistic version. Existing ledger, accounting, approval and portal grants are untouched. TemplateApplication stores the applied version/content and unique request key; project copies are independent. Catalog costs use Decimal(18,4). No example production data is seeded.
+
+## Client display preferences
+
+Migration 202609290001_client_vision adds CLIENT_PREVIEW and ClientTaxDisplayMode. Settings has nonnullable clientTaxDisplayMode (FINAL_TOTAL_ONLY), clientFinancialSummaryEnabled (true), clientManagerVisible (false); Project has nullable overrides. Null means inherit the current company default. No historical financial values or snapshots are rewritten; displayed contract amounts derive from accepted proposal tax evidence and normalized contract adjustments.

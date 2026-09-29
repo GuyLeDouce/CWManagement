@@ -328,6 +328,14 @@ export const financialGuides = [
   }),
   guide('changes', {
     id: 'change-approval',
+    extra: [
+      {
+        heading: 'Client price display',
+        paragraphs: [
+          'Client View shows the recorded final total by default. Project Client View settings can show subtotal and HST separately. This never changes the approved amount. Recorded portal decisions preserve the tax display reviewed by the client.',
+        ],
+      },
+    ],
     title: 'Client approval and Change Order budget impact',
     summary:
       'Acceptance applies the client price and internal cost exactly once to their separate totals.',

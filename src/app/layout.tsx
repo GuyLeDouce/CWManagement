@@ -4,6 +4,7 @@ import './globals.css';
 import './client/client.css';
 import './trade/trade.css';
 import './help.css';
+import './client-vision.css';
 export const metadata: Metadata = {
   title: 'CWManagement',
   description: 'Construction and business management for Cedar Winds Design~Build.',
