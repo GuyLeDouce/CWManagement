@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { actWarranty } from './warranty';
 import { Capability } from '@prisma/client';
 import { Actor, can } from './permissions';
 import { transaction } from './db';
@@ -44,6 +45,7 @@ export async function dispatchTrade(
   body: unknown,
 ) {
   ensure(isTrade(actor), 'Trade access required.', 403);
+  if (!get && path === 'warranty/action') return actWarranty(actor,body);
   if (get && path === 'projects') return { projects: await tradeProjects(actor) };
   if (get && path === 'project') return tradeProject(actor, identifier.parse(params.projectId));
   if (get && path === 'messages')

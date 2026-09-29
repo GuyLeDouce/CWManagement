@@ -7,6 +7,7 @@ import { requireClientProjectAccess } from './client-access';
 import { clientPreferences } from './client-preferences';
 import { clientContractSummary, clientPrice } from './client-pricing';
 import { clientConversations } from './client-messages';
+import { warrantyProjection } from './warranty';
 import { selectionVariance } from './financial-math';
 export { selectionVariance } from './financial-math';
 
@@ -171,7 +172,7 @@ export async function projectProjection(
     take: 100,
   });
   const files = await tx.storedFile.findMany({
-    where: { projectId, visibility: 'CLIENT', archivedAt: null },
+    where: { projectId, visibility: 'CLIENT', archivedAt: null, OR:[{warrantyRequestId:null},{warrantyRequest:{clientContactId:contactId??'__no_client__'}}] },
     select: clientFileSelect,
     orderBy: { uploadedAt: 'desc' },
   });
@@ -255,6 +256,7 @@ export async function projectProjection(
       })
     : [];
   return {
+    warranty: await warrantyProjection(tx,projectId,contactId),
     presentation: { taxDisplayMode: preferences.clientTaxDisplayMode },
     managers: managers.map((m) => ({ name: `${m.user.firstName} ${m.user.lastName}` })),
     financialSummary: preferences.clientFinancialSummaryEnabled

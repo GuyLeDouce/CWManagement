@@ -1,5 +1,6 @@
 'use client';
 import { WordingPicker } from './templates';
+import { ServiceRequests } from './warranty';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -33,6 +34,7 @@ const sections = [
   'photos',
   'documents',
   'messages',
+  'warranty',
 ];
 export function ClientPortal({
   projectId,
@@ -69,6 +71,7 @@ export function ClientPortal({
     photos: 'photos',
     documents: 'files',
     messages: 'messages',
+    warranty: 'warranty',
   };
   return (
     <div className="client-shell">
@@ -230,7 +233,7 @@ export function PortalContent({
   const projectId = data.project.id;
   const path = base || `/client/projects/${projectId}`;
   const fileUrl = (id: string) =>
-    `/api/files/${id}${preview ? '?clientPreview=' + encodeURIComponent(projectId) : ''}`;
+    `/api/files/${id}${preview ? '?clientPreview=' + encodeURIComponent(projectId) + '&' + suffix.replace(/^\?/, '') : ''}`;
   const pending = data.selections.filter((s) => s.status === 'PUBLISHED');
   const changes = data.changeOrders.filter((c) => c.status === 'ISSUED');
   return (
@@ -506,6 +509,7 @@ export function PortalContent({
           ))}
         </>
       )}
+      {section === 'warranty' && <ServiceRequests items={data.warranty} projectId={data.project.id} audience="client" preview={preview} contactId={new URLSearchParams(suffix).get('contactId') || undefined} refresh={refresh} />}
       {section === 'messages' && (
         <ProjectMessages
           projectId={projectId}

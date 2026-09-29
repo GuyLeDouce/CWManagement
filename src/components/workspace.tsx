@@ -38,7 +38,6 @@ import { ErrorBox, Loading, ActionButton, Modal } from './ui';
 import {
   ContactsScreen,
   DashboardScreen,
-  PlaceholderScreen,
   ProjectsScreen,
   ProjectScreen,
 } from './management';
@@ -48,6 +47,8 @@ import { QuickBooksScreen } from './quickbooks';
 import { TemplatesScreen } from './templates';
 import { InternalHelp, ContextualHelp } from './internal-help';
 import { WorkCentre, GlobalSearch, RecentProjects } from './productivity';
+import { CrmWorkspace } from './crm';
+import { ReportsWorkspace, ReminderSettings } from './business-reports';
 const items = [
   { view: '', label: 'Dashboard', icon: LayoutDashboard },
   { view: 'leads', label: 'Leads', icon: UserRoundSearch },
@@ -84,8 +85,10 @@ export function Workspace({ path }: { path: string[] }) {
   const controllerLocked = has('CONTROLLER') && !has('OWNER', 'PM') && !data?.current;
   const visible = items.filter(
     (i) =>
-      (['', 'leads', 'projects', 'schedule', 'time', 'reports'].includes(i.view) &&
+      (['', 'projects', 'schedule', 'time'].includes(i.view) &&
         managementUser) ||
+      (i.view === 'leads' && cap('CRM_VIEW')) ||
+      (i.view === 'reports' && cap('REPORT_VIEW')) ||
       i.view === 'notifications' ||
       i.view === 'how-to' ||
       (i.view === 'my-work' && managementUser) ||
@@ -241,10 +244,10 @@ export function Workspace({ path }: { path: string[] }) {
             <QuickBooksScreen />
           ) : view === 'financials' ? (
             <FinancialsScreen />
-          ) : ['leads', 'schedule', 'reports'].includes(view) ? (
-            <PlaceholderScreen
-              title={visible.find((item) => item.view === view)?.label ?? 'Module'}
-            />
+          ) : view === 'leads' ? (
+            <CrmWorkspace />
+          ) : view === 'reports' ? (
+            <ReportsWorkspace />
           ) : view === 'locate' ? (
             <LocateScreen zone={data.companyTimezone} />
           ) : view === 'verify' || view === 'send' ? (
@@ -252,7 +255,7 @@ export function Workspace({ path }: { path: string[] }) {
           ) : view === 'info' ? (
             <InfoScreen zone={data.companyTimezone} />
           ) : view === 'admin' ? (
-            <AdminScreen zone={data.companyTimezone} />
+            <><AdminScreen zone={data.companyTimezone} /><ReminderSettings /></>
           ) : view === 'visits' ? (
             <VisitsScreen userId={data.user.id} zone={data.companyTimezone} />
           ) : view === 'time' || Boolean(token) || (!managementUser && view === '') ? (

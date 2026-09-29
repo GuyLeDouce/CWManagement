@@ -160,7 +160,7 @@ export const timeAdminGuides = [
     id: 'reports',
     title: 'Where to find reports today',
     summary:
-      'Use the implemented time and project reports; the top-level Reports area is still a placeholder.',
+      'Open Reports for scoped portfolio, schedule, financial, sales, time and warranty views; existing time export remains available.',
     when: 'You need hours, job-cost or operational summaries.',
     destination: 'projects',
     related: ['job-cost', 'time-export', 'locate', 'dashboard'],
@@ -172,7 +172,7 @@ export const timeAdminGuides = [
     ],
     next: 'Open the underlying record when a summary needs explanation.',
     notes: [
-      'There is no general custom-report builder, full portfolio analytics or payroll engine. The top-level Leads screen is also a placeholder; use Contacts and project lifecycle fields for existing records.',
+      'There is no general custom-report builder or payroll engine. Leads now holds opportunities separately from Contacts, with configurable stages and follow-ups.',
     ],
   }),
   guide('administration', {

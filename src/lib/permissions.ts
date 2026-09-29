@@ -148,6 +148,17 @@ const purchasingOperations: Capability[] = [
   'CHANGE_ORDER_EDIT',
   'COMMITMENT_VIEW',
 ];
+for (const role of ['ADMIN', 'CONTROLLER', 'PM', 'PROJECT_MANAGER'] as Role[])
+  roleCapabilities[role]!.push(
+    'CRM_VIEW',
+    'CRM_MANAGE',
+    'WARRANTY_VIEW',
+    'WARRANTY_MANAGE',
+    'REPORT_VIEW',
+  );
+for (const role of ['ADMIN', 'CONTROLLER'] as Role[])
+  roleCapabilities[role]!.push('CRM_CONFIGURE', 'AUTOMATION_MANAGE');
+roleCapabilities.ESTIMATOR!.push('CRM_VIEW', 'CRM_MANAGE', 'REPORT_VIEW');
 const purchasingControl: Capability[] = [
   ...purchasingOperations,
   'PURCHASE_ORDER_APPROVE',

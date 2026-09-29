@@ -227,6 +227,13 @@ enum Role {
 }
 
 enum Capability {
+  CRM_VIEW
+  CRM_MANAGE
+  CRM_CONFIGURE
+  WARRANTY_VIEW
+  WARRANTY_MANAGE
+  REPORT_VIEW
+  AUTOMATION_MANAGE
   TEMPLATE_VIEW
   TEMPLATE_MANAGE
   COST_CATALOG_VIEW
@@ -517,6 +524,11 @@ enum TokenPurpose {
 }
 
 model User {
+  opportunities              Opportunity[]
+  crmActivities              CrmActivity[]
+  savedReports               SavedReport[]
+  deliveryRecords            DeliveryRecord[]
+  dailyDigestEnabled         Boolean                 @default(false)
   tradeAccess                TradeProjectAccess[]
   tradeAcknowledgements      TradeAcknowledgement[]
   tradeScheduleResponses     TradeScheduleResponse[]
@@ -630,6 +642,11 @@ enum ClientTaxDisplayMode {
 }
 
 model Project {
+  opportunity                   Opportunity?
+  warrantyRequests              WarrantyRequest[]
+  warrantyStartDate             DateTime?               @db.Date
+  warrantyExpirationDate        DateTime?               @db.Date
+  weeklyClientSummaryEnabled    Boolean                 @default(false)
   clientTaxDisplayMode          ClientTaxDisplayMode?
   clientFinancialSummaryEnabled Boolean?
   clientManagerVisible          Boolean?
@@ -743,6 +760,7 @@ model Company {
 }
 
 model Contact {
+  opportunities          Opportunity[]
   tradeAccess            TradeProjectAccess[]
   tradeAcknowledgements  TradeAcknowledgement[]
   tradeTaskReleases      TradeTaskRelease[]
@@ -1138,6 +1156,9 @@ model DailyLog {
 }
 
 model StoredFile {
+  storageProvider           String              @default("local")
+  warrantyRequestId         String?
+  warrantyRequest           WarrantyRequest?    @relation(fields: [warrantyRequestId], references: [id], onDelete: Restrict)
   origin                    FileOrigin          @default(STAFF)
   revisionLabel             String?
   tradeUploaderContactId    String?
@@ -1708,6 +1729,9 @@ model ExportItem {
 }
 
 model Settings {
+  automationEnabled             Boolean              @default(false)
+  automationEmailEnabled        Boolean              @default(false)
+  nextWarrantyNumber            Int                  @default(1)
   clientTaxDisplayMode          ClientTaxDisplayMode @default(FINAL_TOTAL_ONLY)
   clientFinancialSummaryEnabled Boolean              @default(true)
   clientManagerVisible          Boolean              @default(false)
@@ -2003,6 +2027,7 @@ model ConversationRead {
 enum FileOrigin {
   STAFF
   TRADE_UPLOAD
+  CLIENT_UPLOAD
 }
 
 enum InstructionStatus {
@@ -2195,4 +2220,183 @@ model DeficiencyUpdate {
   deficiency         Deficiency       @relation(fields: [deficiencyId], references: [id], onDelete: Restrict)
 
   @@index([deficiencyId, createdAt])
+}
+
+enum OpportunityStatus {
+  OPEN
+  WON
+  LOST
+}
+
+model OpportunityStage {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  sortOrder     Int           @default(0)
+  active        Boolean       @default(true)
+  opportunities Opportunity[]
+}
+
+model LeadSource {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  active        Boolean       @default(true)
+  opportunities Opportunity[]
+}
+
+model Opportunity {
+  id                String            @id @default(cuid())
+  title             String
+  contactId         String
+  contact           Contact           @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  stageId           String
+  stage             OpportunityStage  @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  sourceId          String?
+  source            LeadSource?       @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  ownerId           String
+  owner             User              @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  status            OpportunityStatus @default(OPEN)
+  projectType       String            @default("")
+  address           String            @default("")
+  municipality      String            @default("")
+  referralSource    String            @default("")
+  estimatedValue    Decimal           @default(0) @db.Decimal(14, 2)
+  probability       Int               @default(0)
+  expectedCloseDate DateTime?         @db.Date
+  consultationDate  DateTime?         @db.Timestamptz(3)
+  nextFollowUp      DateTime?         @db.Timestamptz(3)
+  notes             String            @default("")
+  lostReason        String?
+  closedAt          DateTime?         @db.Timestamptz(3)
+  projectId         String?           @unique
+  project           Project?          @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  version           Int               @default(1)
+  activities        CrmActivity[]
+  createdAt         DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @db.Timestamptz(3)
+
+  @@index([ownerId, status, nextFollowUp])
+}
+
+model CrmActivity {
+  id            String      @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  ownerId       String
+  owner         User        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  title         String
+  category      String
+  notes         String      @default("")
+  dueAt         DateTime    @db.Timestamptz(3)
+  completedAt   DateTime?   @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([ownerId, completedAt, dueAt])
+}
+
+enum WarrantyStatus {
+  SUBMITTED
+  REVIEWING
+  ACCEPTED
+  NOT_WARRANTY
+  ASSIGNED
+  SCHEDULED
+  IN_PROGRESS
+  READY_FOR_REVIEW
+  READY_FOR_CLIENT
+  CLIENT_VERIFIED
+  CLOSED
+}
+
+model WarrantyRequest {
+  id               String           @id @default(cuid())
+  projectId        String
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  number           String           @unique
+  title            String
+  description      String
+  location         String           @default("")
+  category         String           @default("")
+  priority         String           @default("NORMAL")
+  status           WarrantyStatus   @default(SUBMITTED)
+  clientContactId  String?
+  assignedUserId   String?
+  assignedTradeId  String?
+  createdById      String
+  dueAt            DateTime?        @db.Timestamptz(3)
+  appointmentAt    DateTime?        @db.Timestamptz(3)
+  internalNotes    String           @default("")
+  clientNotes      String           @default("")
+  tradeDescription String           @default("")
+  decisionReason   String           @default("")
+  completedAt      DateTime?        @db.Timestamptz(3)
+  clientVerifiedAt DateTime?        @db.Timestamptz(3)
+  version          Int              @default(1)
+  updates          WarrantyUpdate[]
+  files            StoredFile[]
+  createdAt        DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@index([projectId, status, dueAt])
+  @@index([assignedTradeId, status])
+}
+
+model WarrantyUpdate {
+  id        String          @id @default(cuid())
+  requestId String
+  request   WarrantyRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  actorId   String
+  audience  FileVisibility  @default(INTERNAL)
+  body      String
+  status    WarrantyStatus
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([requestId, createdAt])
+}
+
+model SavedReport {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  name      String
+  report    String
+  filters   Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([userId, name])
+}
+
+model AutomationRun {
+  id          String    @id @default(cuid())
+  startedAt   DateTime  @default(now()) @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+  status      String    @default("RUNNING")
+  generated   Int       @default(0)
+  delivered   Int       @default(0)
+  safeError   String?
+}
+
+model AutomationLease {
+  id        String   @id
+  token     String
+  expiresAt DateTime @db.Timestamptz(3)
+}
+
+model DeliveryRecord {
+  id          String    @id @default(cuid())
+  dedupeKey   String    @unique
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  projectId   String?
+  kind        String
+  entityId    String
+  title       String
+  actionUrl   String
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  availableAt DateTime  @default(now()) @db.Timestamptz(3)
+  deliveredAt DateTime? @db.Timestamptz(3)
+  safeError   String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([status, availableAt])
 }

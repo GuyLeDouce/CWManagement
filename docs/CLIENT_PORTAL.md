@@ -2,7 +2,7 @@
 
 Portal users are authenticated `User` records linked deliberately to a contact or authorized trade identity. Creating a contact never creates access.
 
-Client queries use separate allowlisted projections for overview, published schedule/updates, photos/files, selections, allowances, issued Change Orders and messages. They exclude costs, margins, employee/payroll data, vendor pricing, internal notes, accounting records and every unrelated project. Invoice/payment summaries and warranty are not implemented.
+Client queries use separate allowlisted projections for overview, published schedule/updates, photos/files, selections, allowances, issued Change Orders and messages. They exclude costs, margins, employee/payroll data, vendor pricing, internal notes, accounting records and every unrelated project. Phase 8A adds reporting-client-scoped warranty requests, evidence and completion verification. Invoice/payment summaries remain unimplemented.
 
 Phase 6 implements a separate Trade Portal; see TRADE_PORTAL.md. Client downloads use authenticated project-scoped routes, not public storage URLs.
 
@@ -36,8 +36,11 @@ The existing applyChangeOrderAcceptance helper and approval insertion run in one
 
 Event-triggered inbox entries accompany invitations, selection publication, CO issue, newly published content and staff messages. Email runs after commit, best effort; inbox is authoritative. Reads create no notifications. Client actions notify scoped staff and create safe activity entries. Home derives attention and recent updates only from published sources, never AuditLog.
 
-Deadline reminders, email retry outbox, pagination of large histories, warranty and payments are deferred. Client project messaging includes read state; rich client message attachments and private individual-client threads are not implemented. Trade messaging uses its own Contact-scoped authorization boundary.
+Phase 8A adds durable deadline reminders, reviewed email delivery recovery and warranty. Pagination of large histories and payments remain deferred. Client project messaging includes read state; rich client message attachments and private individual-client threads are not implemented. Trade messaging uses its own Contact-scoped authorization boundary.
 
 ## Client Vision and fixed-price presentation
 
 See CLIENT_VISION.md for the dedicated preview route, recipient selector, shared rendering, proposal tab, scoped downloads, contract-summary prerequisites and company/project tax-display preferences. Client selection prices remain explicitly pre-HST; issued proposals and COs use recorded final totals. Internal estimate/cost information is never exposed.
+
+## Warranty
+Warranty is a new portal section. Requests, CLIENT updates and CLIENT evidence are scoped to the reporting Contact even within a shared project. Only that client may verify staff-completed work. General Client Vision shows no identity-specific request; selecting a client uses the same projection. Weekly review is opt-in per project and derives only from the client-safe projection. See WARRANTY.md and AUTOMATION.md.

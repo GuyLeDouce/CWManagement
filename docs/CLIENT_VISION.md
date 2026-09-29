@@ -52,3 +52,6 @@ Proposal portal acceptance remains staff-recorded; this feature provides viewing
 - Production build passed. Desktop/mobile previews were reviewed using real browser captures.
 
 Deployment must apply the additive migration before serving the new code. No new environment variables are required. This validation does not establish live QuickBooks compatibility.
+
+## Phase 8A service preview
+Warranty uses the same client projection and renderer. Select a client to see their own requests; general preview shows none. Creation, upload, comment and verification are disabled. Protected file links carry selected Contact context and retain CLIENT visibility/project checks.

@@ -37,3 +37,6 @@ Issued PO/WO revisions feed Commitment/CommitmentLine, excluding recoverable tax
 ## Phase 6 operational boundary
 
 Trade acknowledgements, schedule responses, instructions, deficiency status, uploads and messages have no automatic ledger effect. A site instruction is not approval of extra cost. Trade proposed changes must be reviewed through existing purchasing revisions and client Change Orders. The portal projects only the recipient's agreed vendor price, never client revenue, budget, commitments, actuals, forecasts or margin. Phase 7 preserves this isolation; trades have no accounting administration capabilities.
+
+## Phase 8A reporting boundary
+Portfolio and cost-code reports call the existing normalized jobCost service. Sales probability/value is not accounting revenue; warranty actions create no ledger entries. Scheduled QuickBooks health checks only notify authorized operators and never alter pilot activation or queue accounting writes.

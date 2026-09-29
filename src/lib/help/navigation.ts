@@ -1,5 +1,7 @@
 import type { HelpArticle } from './types';
 const destinations: Record<string, { href: string; label: string; any?: string[] }> = {
+  leads:{href:'/leads',label:'Open Leads',any:['CRM_VIEW']},
+  reports:{href:'/reports',label:'Open Reports',any:['REPORT_VIEW']},
   dashboard: {
     href: '/',
     label: 'Open Dashboard',
@@ -105,6 +107,7 @@ export function recommendedHelp(
   return ids.map((id) => articles.find((a) => a.id === id)).filter((a): a is HelpArticle => !!a);
 }
 export const contextualArticles: Record<string, string> = {
+  leads:'leads',
   '': 'dashboard',
   projects: 'create-project',
   templates: 'template-library',
@@ -124,6 +127,7 @@ export const contextualArticles: Record<string, string> = {
   visits: 'admin-import-audit',
 };
 export const projectContext: Record<string, string> = {
+  warranty:'warranty',
   overview: 'project-overview',
   schedule: 'schedule-tasks',
   estimate: 'create-estimate',

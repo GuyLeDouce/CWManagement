@@ -26,6 +26,7 @@ export default async function Page({
         'photos',
         'documents',
         'messages',
+        'warranty',
       ].includes(path[0]))
   )
     notFound();

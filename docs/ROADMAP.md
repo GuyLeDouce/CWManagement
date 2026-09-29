@@ -6,7 +6,7 @@ Branding and scalable shell; project/contact/company model; flexible assignments
 
 ## Phase 2 — Project operations (implemented)
 
-Meaningful project activity, project settings/relationships, Schedule V1 with dependencies and assignees, mobile daily logs, file/photo metadata and development storage, notification inbox, expanded capabilities, isolated PostgreSQL CI, and hierarchical cost-code foundation. Durable production object storage and automated due-date notification delivery remain follow-up deployment work.
+Meaningful project activity, project settings/relationships, Schedule V1 with dependencies and assignees, mobile daily logs, file/photo metadata and development storage, notification inbox, expanded capabilities, isolated PostgreSQL CI, and hierarchical cost-code foundation. Phase 8A adds object storage and scheduled reminders; production configuration remains a deployment step.
 
 ## Phase 3 — Estimating and budget (implemented)
 
@@ -18,7 +18,7 @@ Shared PO/WO document families, immutable issued revisions, approvals, normalize
 
 ## Phase 5 — Selections and client portal (implemented)
 
-Allowances and options, explicit client grants/invitations, allowlisted portal DTOs, published schedule/updates/files, immutable selection decisions, signed selection CO deltas, authenticated idempotent CO approval and scoped messaging are implemented. SMTP delivery uses existing configuration; production file storage, scheduled reminders and larger-history pagination remain follow-up work. Warranty remains later operational work.
+Allowances and options, explicit client grants/invitations, allowlisted portal DTOs, published schedule/updates/files, immutable selection decisions, signed selection CO deltas, authenticated idempotent CO approval and scoped messaging are implemented. SMTP delivery uses existing configuration; production file storage, scheduled reminders and larger-history pagination remain follow-up work. Phase 8A adds warranty/service operations.
 
 ## Phase 6 — Trade portal (implemented)
 
@@ -36,8 +36,14 @@ Company template library, project setup wizard/selective copy, relative schedule
 
 Internal searchable help, separate client/trade help, contextual workspace links, role-aware starting guides and printable manuals describe current supported workflows. Content maintenance is documented in [HELP_CONTENT.md](HELP_CONTENT.md). This is not Phase 8 and does not change financial or portal authorization.
 
-## Phase 8 — Reporting and automation
+## Phase 8A — CRM, warranty, reporting and scheduled operations
 
-**Not started.** Phase 7.5 adds [controlled live validation](QUICKBOOKS_PILOT.md): pilot allowlists, pause, pre-flight, reviewed imports/reversals, append-only test results and guarded activation. Actual Cedar Winds live validation remains pending; automated tests do not change that status.
+Implemented locally: configurable opportunity stages/sources, sales follow-ups, transactional conversion through the existing project wizard; separate warranty requests with client submission, trade work, staff review and client verification; scoped portfolio reports, CSV/print and saved filters; dashboard/My Work additions; durable reminder leases, delivery deduplication and reviewed email recovery; optional digests; private S3-compatible storage with per-file provider metadata; portal/Client Vision/HOW TO integration and production recovery guidance.
 
-Close Phase 7 live-validation and tax/deletion gaps first. Then extend normalized portfolio reports and management dashboards; warranty/service operations through portal/file/message boundaries; scheduled selection/trade/connector reminders with durable deduplication; workflow automation; production hardening, monitoring, retention and recovery; and audited CoConstruct migration/retirement tools.
+This is an initial operational implementation, not a claim of CoConstruct replacement or production rollout. CRM document storage before project conversion, pre-project estimating, advanced report pivots/pagination, user-specific reminder cadence, appointment dispatch/calendar integration, storage migration tooling and live recovery exercises remain follow-up work. See CRM.md, WARRANTY.md, REPORTING.md, AUTOMATION.md and PRODUCTION_RECOVERY.md for boundaries.
+
+Production object storage, SMTP delivery and cron must be configured and verified deliberately. No production reminder delivery has been enabled by this implementation. QuickBooks remains IMPLEMENTED — LIVE VALIDATION PENDING under Phase 7.5 pilot controls. No QuickBooks activation or accounting authority changes accompany Phase 8A.
+
+## Later operational work
+
+Close the live QuickBooks validation, tax and deletion gaps; improve large-history reporting and workflow UX; add audited CoConstruct migration/retirement tools only after operational acceptance and recovery testing. Payroll, payments, replacement accounting, BIM and uncontrolled automation remain out of scope.

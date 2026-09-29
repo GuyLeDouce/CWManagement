@@ -6,6 +6,7 @@ import { Actor } from './permissions';
 import { requireTradeProjectAccess, tradeFileScope, tradeTaskScope } from './trade-access';
 import { ensure } from './errors';
 import { isTrade } from './external-identity';
+import { tradeWarrantyProjection } from './warranty';
 
 const optionalText = z.string().nullable().optional();
 // Unknown fields are stripped recursively. Never spread financial snapshots into a portal response.
@@ -233,6 +234,7 @@ export async function tradeProject(actor: Actor, projectId: string) {
     });
     return {
       project,
+      warranty: await tradeWarrantyProjection(tx,projectId,contactId),
       unreadConversations: threads.filter(
         (t) => t.messages[0] && (!t.reads[0] || t.messages[0].createdAt > t.reads[0].readAt),
       ).length,

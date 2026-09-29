@@ -7,7 +7,8 @@ import { transaction } from '@/lib/db';
 import { AppError, ensure } from '@/lib/errors';
 import { appUrl } from '@/lib/email';
 import { requireCapability, requireProjectAccess } from '@/lib/permissions';
-import { maximumUploadBytes, storage } from '@/lib/storage';
+import { maximumUploadBytes, storage, storageDriver } from '@/lib/storage';
+import { validateTradeUpload } from '@/lib/trade-uploads';
 import { clientNotice, deliverClientNotices } from '@/lib/client-notices';
 
 export const runtime = 'nodejs';
@@ -55,13 +56,17 @@ export async function POST(request: NextRequest) {
     );
     ensure(file.name.length <= 255 && file.type.length <= 150, 'File metadata is invalid.');
     const key = `${input.projectId}/${crypto.randomUUID()}`;
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    validateTradeUpload(file.name, file.type, bytes);
     storedKey = key;
     await storage().put({
       key,
-      bytes: new Uint8Array(await file.arrayBuffer()),
+      bytes,
       contentType: file.type || 'application/octet-stream',
     });
     const saved = await transaction(async (tx) => {
+      await requireCapability(actor, 'FILE_UPLOAD', tx);
+      await requireProjectAccess(actor, input.projectId, tx);
       noticeIds.length = 0;
       if (input.dailyLogId)
         ensure(
@@ -80,6 +85,7 @@ export async function POST(request: NextRequest) {
           mimeType: file.type || 'application/octet-stream',
           size: BigInt(file.size),
           storageKey: key,
+          storageProvider: storageDriver(),
         },
       });
       await publishProjectEvent(tx, {

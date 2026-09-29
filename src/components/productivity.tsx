@@ -3,6 +3,7 @@ import { useState, useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { api, useApi, pretty } from '@/lib/client';
 import { ActionButton, ErrorBox, Empty } from './ui';
+import { ReminderSettings } from './business-reports';
 const recentKey = 'cw-recent-project-ids';
 const recentSubscribe = (callback: () => void) => {
   window.addEventListener('cw-recent', callback);
@@ -58,6 +59,8 @@ export function RecentProjects({ projectId }: { projectId?: string }) {
 }
 export function WorkCentre({ mine = false, projectId }: { mine?: boolean; projectId?: string }) {
   const query = useApi<{
+    warranty: {id:string;projectId:string;title:string;status:string;dueAt:string|null}[];
+    followUps: {id:string;title:string;dueAt:string}[];
     tasks: {
       id: string;
       projectId: string;
@@ -119,6 +122,8 @@ export function WorkCentre({ mine = false, projectId }: { mine?: boolean; projec
           </section>
           <section className="panel">
             <h3>Decisions & follow-up</h3>
+            {data.followUps.map(f=><Link key={f.id} className="data-row" href="/leads">{f.title}<small>Sales follow-up · {f.dueAt.slice(0,10)}</small></Link>)}
+            {data.warranty.map(w=><Link key={w.id} className="data-row" href={`/projects/${w.projectId}/warranty`}>{w.title}<small>Warranty · {pretty(w.status)}</small></Link>)}
             {data.selections.map((s) => (
               <Link key={s.id} className="data-row" href={`/projects/${s.projectId}/selections`}>
                 <span>
@@ -141,7 +146,7 @@ export function WorkCentre({ mine = false, projectId }: { mine?: boolean; projec
                 {n.title}
               </Link>
             ))}
-            {!data.notifications.length && !data.selections.length && !data.deficiencies.length && (
+            {!data.notifications.length && !data.selections.length && !data.deficiencies.length && !data.warranty.length && !data.followUps.length && (
               <Empty title="No outstanding follow-up">
                 Approvals, decisions and messages will appear as work progresses.
               </Empty>
@@ -149,6 +154,7 @@ export function WorkCentre({ mine = false, projectId }: { mine?: boolean; projec
           </section>
         </div>
       )}
+      {mine && <ReminderSettings />}
     </section>
   );
 }

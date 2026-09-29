@@ -41,6 +41,16 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:integration
+      - name: Create isolated scheduler test database
+        run: docker exec ${{ job.services.postgres.id }} createdb -U postgres cwmanagement_phase8a_automation_test
+      - name: Migrate scheduler test database
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cwmanagement_phase8a_automation_test
+      - name: Test scheduled delivery and recovery
+        run: npm run test:automation
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cwmanagement_phase8a_automation_test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

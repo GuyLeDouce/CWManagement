@@ -7,6 +7,7 @@ import { ActionButton, Badge, Empty, ErrorBox, Loading, Modal } from './ui';
 import { ProjectWorkspace } from './project-operations';
 import { ProjectWizard } from './project-setup';
 import { WorkCentre } from './productivity';
+import { BusinessDashboard } from './business-reports';
 
 type Project = {
   id: string;
@@ -82,6 +83,7 @@ export function DashboardScreen() {
       intro="Live operational information from CWManagement."
     >
       <ErrorBox message={error} />
+      <BusinessDashboard />
       <WorkCentre />
       {data && (
         <>

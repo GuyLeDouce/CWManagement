@@ -3,6 +3,7 @@ import { db, transaction } from './db';
 import { Actor, can, projectScope, requireCapability, requireProjectAccess } from './permissions';
 import { ensure } from './errors';
 import { publishProjectEvent } from './activity';
+import { crmScope } from './crm';
 export async function workQueue(actor: Actor, mine = false, projectId?: string) {
   const scope = { ...(await projectScope(actor)), ...(projectId ? { id: projectId } : {}) };
   const [tasks, notifications, deficiencies, selections] = await Promise.all([
@@ -47,7 +48,32 @@ export async function workQueue(actor: Actor, mine = false, projectId?: string) 
         })
       : [],
   ]);
-  return { tasks, notifications, deficiencies, selections };
+  const warranty = (await can(actor, 'WARRANTY_VIEW'))
+    ? await db.warrantyRequest.findMany({
+        where: {
+          project: scope,
+          status: { notIn: ['CLOSED', 'NOT_WARRANTY'] },
+          ...(mine ? { assignedUserId: actor.id } : {}),
+        },
+        select: { id: true, projectId: true, title: true, status: true, dueAt: true },
+        orderBy: { dueAt: 'asc' },
+        take: 30,
+      })
+    : [];
+  const followUps =
+    !projectId && (await can(actor, 'CRM_VIEW'))
+      ? await db.crmActivity.findMany({
+          where: {
+            opportunity: await crmScope(actor),
+            completedAt: null,
+            ...(mine ? { ownerId: actor.id } : {}),
+          },
+          select: { id: true, title: true, dueAt: true },
+          orderBy: { dueAt: 'asc' },
+          take: 30,
+        })
+      : [];
+  return { tasks, notifications, deficiencies, selections, warranty, followUps };
 }
 export async function globalSearch(actor: Actor, q: string) {
   const scope = await projectScope(actor);

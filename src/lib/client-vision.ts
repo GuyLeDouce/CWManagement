@@ -35,10 +35,25 @@ export async function clientPreview(actor: Actor, projectId: string, contactId?:
     };
   });
 }
-export async function previewFile(actor: Actor, id: string, projectId: string, tx: Tx = db) {
+export async function previewFile(
+  actor: Actor,
+  id: string,
+  projectId: string,
+  tx: Tx = db,
+  contactId?: string,
+) {
   await requireClientPreview(actor, projectId, tx);
   const file = await tx.storedFile.findFirst({
-    where: { id, projectId, visibility: 'CLIENT', archivedAt: null },
+    where: {
+      id,
+      projectId,
+      visibility: 'CLIENT',
+      archivedAt: null,
+      OR: [
+        { warrantyRequestId: null },
+        { warrantyRequest: { clientContactId: contactId ?? '__no_client__' } },
+      ],
+    },
   });
   ensure(file, 'File not found.', 404);
   return file; // Server-only storage adapter; never a DTO.

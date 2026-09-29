@@ -63,6 +63,7 @@ export function guide(category: string, g: GuideInput): HelpArticle {
   };
 }
 export const categories = [
+  ['business','Sales, service & reporting','Manage opportunities, warranty, reports and scheduled follow-up.'],
   ['getting-started', 'Getting started', 'Your first day and the Cedar Winds project workflow.'],
   ['workday', 'Dashboard & My Work', 'Find the next action, search and return to recent projects.'],
   ['projects', 'Projects', 'Set up a project, its people and its working information.'],

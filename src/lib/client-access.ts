@@ -31,7 +31,8 @@ export async function clientFile(actor: Actor, id: string, tx: Tx = db) {
     where: { id, visibility: 'CLIENT', archivedAt: null },
   });
   ensure(file, 'File not found.', 404);
-  await requireClientProjectAccess(actor, file.projectId, tx);
+  const grant = await requireClientProjectAccess(actor, file.projectId, tx);
+  if (file.warrantyRequestId) ensure(await tx.warrantyRequest.findFirst({where:{id:file.warrantyRequestId,clientContactId:grant.contactId,projectId:file.projectId}}),'File not found.',404);
   return file; // Server-only download adapter; never serialize this record.
 }
 

@@ -65,3 +65,6 @@ TEMPLATE_VIEW/TEMPLATE_MANAGE are bundled for Owner, Controller, Estimator, PM/P
 ## Client Vision
 
 CLIENT_PREVIEW is bundled for OWNER, ADMIN, CONTROLLER, PM, PROJECT_MANAGER, ESTIMATOR and DESIGNER. Normal internal project scope and explicit denials remain mandatory. OFFICE/FIELD/SHOP receive no automatic grant; internal overrides remain available. CLIENT/SUBTRADE/VENDOR cannot preview. Publishing/settings edits use CLIENT_CONTENT_PUBLISH; company defaults use SETTINGS_MANAGE. Preview grants no publication or approval capability.
+
+## Phase 8A
+CRM_VIEW/CRM_MANAGE and CRM_CONFIGURE govern scoped sales work and company configuration. WARRANTY_VIEW/WARRANTY_MANAGE require ordinary project access. REPORT_VIEW is combined with each report's existing domain capability; saved filters cannot expand scope. AUTOMATION_MANAGE controls company opt-in and delivery review. Owner has all; Admin/Controller have CRM configuration and automation, and Admin/Controller/PM/Project Manager have operational CRM/warranty/reporting bundles. Estimator has CRM and reporting. External roles have none: warranty uses explicit portal grants plus exact reporting/assigned Contact. Financial margin remains separately protected.

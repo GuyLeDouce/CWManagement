@@ -1,6 +1,7 @@
 import { guide } from './types';
 // Deliberately separate from the internal manual: external bundles import only these guides.
 export const clientGuides = [
+  guide('using-portal',{id:'service',title:'Report a warranty or service issue',summary:'Ask Cedar Winds to review an issue and follow the repair.',when:'Something in your project needs service.',steps:['Open your project and choose Warranty.','Choose New service request. Describe the issue and its location.','After submitting, attach a clear photo or PDF if useful.','Use comments to discuss the request. Your request is private to your client identity and Cedar Winds.','When Cedar Winds marks the work complete, inspect it and choose Verify.'],next:'Cedar Winds reviews coverage and arranges the work. Submission is not a promise of warranty coverage.',notes:['A preview cannot submit requests. Contact Cedar Winds if the issue remains unresolved.']}),
   guide('using-portal', {
     id: 'welcome',
     title: 'Welcome to your Client Portal',
@@ -88,6 +89,7 @@ export const clientGuides = [
   }),
 ];
 export const tradeGuides = [
+  guide('work',{id:'service',title:'Complete assigned service work',summary:'Review and complete the service work Cedar Winds assigned to you.',when:'A warranty or service request appears in your project.',steps:['Open the project and choose Warranty.','Read the assigned scope, location, due date and shared evidence.','Acknowledge the request or start work. Add a comment if you need clarification.','Upload a completion photo or PDF, then mark Ready.','Cedar Winds reviews your work before asking the client to verify.'],next:'You can follow status changes, but only Cedar Winds can determine warranty coverage or close requests.',notes:['An instruction does not authorize extra cost. Discuss additional scope with Cedar Winds before proceeding.']}),
   guide('using-portal', {
     id: 'welcome',
     title: 'Welcome to the Trade Portal',

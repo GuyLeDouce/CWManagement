@@ -1,6 +1,6 @@
 # CWManagement Architecture
 
-QuickBooks Phase 7.5 uses the existing service/queue/ledger boundaries with `pilot.ts` for mode/allowlist/activation enforcement and `diagnostics.ts` for authorized previews/pre-flight/run details. See [controlled pilot](QUICKBOOKS_PILOT.md). No Phase 8 architecture has been introduced.
+QuickBooks Phase 7.5 uses the existing service/queue/ledger boundaries with `pilot.ts` for mode/allowlist/activation enforcement and `diagnostics.ts` for authorized previews/pre-flight/run details. See [controlled pilot](QUICKBOOKS_PILOT.md). Phase 8A operations do not modify these controls.
 
 ## Product boundary
 
@@ -23,7 +23,7 @@ CWManagement is the Cedar Winds operational system. QuickBooks Desktop remains t
 - Project operations: `ProjectTask`, `DailyLog`, and `StoredFile` are project-scoped aggregates with dedicated authorization and service functions.
 - Audit/activity: meaningful actions publish through `publishProjectEvent`. `AuditLog` remains append-only and now carries project scope, a human-readable description, metadata, and useful before/after snapshots.
 - Notifications: durable in-app notifications are created from useful domain actions. Assignment notifications are targeted; the event architecture can later fan out to email or push.
-- Storage: business code depends on `StorageService`, never the Railway filesystem. Local disk is a development adapter only; production remains deliberately disabled until a durable object-storage adapter is configured.
+- Storage: business code depends on `StorageService`, never the Railway filesystem. Local disk is development-only; the S3-compatible adapter serves private production objects through authorized routes. Each file records its provider; legacy bytes require deliberate migration.
 
 ## UI shell
 
@@ -72,3 +72,6 @@ Version-controlled `src/lib/help` articles power internal `/how-to` and separate
 ## Client Vision
 
 Staff preview has its own authenticated `/client-preview/projects/[id]` boundary but reuses the client project DTO and ClientPortal renderer. Preview authorization is internal capability/project scope, not impersonation or a portal grant. No client mutation endpoint accepts a staff identity. See CLIENT_VISION.md.
+
+## Phase 8A operational services
+CRM, warranty, portfolio reporting and automation are separate service modules. Opportunity conversion invokes the existing transactional project setup service. Warranty portal projections are independent allowlists shared with Client Vision. Reports reuse projectScope/segmentScope and jobCost. Durable automation leases and delivery records survive restarts; uncertain SMTP outcomes require reviewed recovery. StoredFile provider metadata selects the private local-development or S3-compatible adapter. No new financial ledger or QuickBooks activation path is introduced.

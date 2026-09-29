@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { api, useApi, date, pretty } from '@/lib/client';
 import { ActionButton, ErrorBox, Loading } from './ui';
 import { Brand } from './brand';
+import { ServiceRequests } from './warranty';
 import type { TradeProject } from '@/lib/trade-projections';
 import type { tradeConversations } from '@/lib/trade-messages';
 export type Wire<T> = T extends Date
@@ -75,6 +76,7 @@ const sections = [
   'deficiencies',
   'uploads',
   'messages',
+  'warranty',
 ];
 const dollars = (s: string) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Number(s));
@@ -178,6 +180,7 @@ export function TradePortal({
                     {data.project.number} · {data.role === 'VENDOR' ? 'Supplier' : 'Subcontractor'}
                   </p>
                   <h1>{data.project.name}</h1>
+                  {active === 'warranty' && <ServiceRequests items={data.warranty} projectId={data.project.id} audience="trade" refresh={refresh} />}
                   {active === 'home' && (
                     <>
                       <p>

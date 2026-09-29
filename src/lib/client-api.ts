@@ -5,6 +5,7 @@ import {
   clientPreferencesSchema,
 } from './client-vision';
 import { ensureTradeFileMutable } from './trade-access';
+import { createWarranty, actWarranty } from './warranty';
 import { z } from 'zod';
 import { Actor, requireCapability, requireProjectAccess } from './permissions';
 import { db, transaction } from './db';
@@ -39,6 +40,8 @@ export async function dispatchClient(
   body: unknown,
 ) {
   ensure(actor.roles.length === 1 && actor.roles[0] === 'CLIENT', 'Client access required.', 403);
+  if (!get && path === 'warranty') return createWarranty(actor,body);
+  if (!get && path === 'warranty/action') return actWarranty(actor,body);
   if (get && path === 'projects') return { projects: await clientProjects(actor) };
   if (get && path === 'project') return clientProject(actor, identifier.parse(params.projectId));
   if (get && path === 'messages')

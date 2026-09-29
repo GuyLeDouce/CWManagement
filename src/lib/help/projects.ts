@@ -19,7 +19,7 @@ export const projectGuides = [
       'Keep schedule dates, daily logs, photos, messages and deficiencies current. Record employee time through the QR workflow.',
       'Price, issue and obtain approval for changes. Monitor Budget, Committed, Actual, Forecast and Variance during project reviews.',
       'Have authorized staff approve time and reconcile accounting costs. QuickBooks use starts with the controlled pilot, not unrestricted sync.',
-      'Review open deficiencies and outstanding work, update project status/dates and archive when appropriate. Full warranty/service operations are not yet built.',
+      'Review open deficiencies and outstanding work, update project status/dates and archive when appropriate. Use Project → Warranty for service requests, assignment, completion and client verification.',
     ],
     next: 'Use the linked guides for the detailed steps. If a button is missing, ask about your permissions rather than using another person’s account.',
     notes: [
@@ -102,7 +102,7 @@ export const projectGuides = [
     ],
     next: 'Project relationships are available to the operational workflows. Client and trade portal access still requires a separate explicit invitation/grant.',
     notes: [
-      'Status is the lifecycle, such as Active or On hold. Stage is descriptive working context. A Warranty status does not create a warranty module. Original contract changes become restricted once accepted Change Orders exist; use controlled financial changes, not baseline edits.',
+      'Status is the lifecycle, such as Active or On hold. Stage is descriptive working context. Use the Warranty tab to manage service requests; coverage dates must be entered deliberately. Original contract changes become restricted once accepted Change Orders exist; use controlled financial changes, not baseline edits.',
     ],
   }),
   guide('projects', {

@@ -6,7 +6,7 @@ import { requireTradeProjectAccess } from './trade-access';
 import { tradeContext } from './trade-messages';
 import { tradeEvent } from './trade-workflows';
 import { ensure } from './errors';
-import { maximumUploadBytes, storage } from './storage';
+import { maximumUploadBytes, storage, storageDriver } from './storage';
 export const tradeUploadSchema = z
   .object({
     projectId: identifier,
@@ -90,6 +90,7 @@ export async function uploadTradeFile(
           mimeType,
           size: BigInt(file.bytes.length),
           storageKey: key,
+          storageProvider: storageDriver(),
           caption: input.caption,
         },
       });

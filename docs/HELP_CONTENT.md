@@ -45,3 +45,5 @@ Reports/Leads are placeholders; production file upload needs durable storage imp
 ## Initial validation
 
 The initial manual contains 106 internal articles across 25 categories, five client guides and seven trade guides. Validation passed: lint, typecheck, 95 unit tests, 103 isolated PostgreSQL integration tests, 33 focused QuickBooks tests, 19 browser workflows and the production build (including Prisma generation). The focused QuickBooks count overlaps the unit/integration suites. Seven help unit tests and six help browser workflows cover search, routes, recommendations, capability-filtered links, mobile navigation, portal separation and printable content. Desktop/mobile layouts were visually reviewed from actual browser captures. No schema change or migration was needed. These automated results do not establish live QuickBooks compatibility.
+
+Phase 8A guides live in business.ts; client/trade warranty guides remain in the separate portals.ts bundle. Material CRM, service, report and reminder changes must update these guides alongside the implementation.

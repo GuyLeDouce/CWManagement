@@ -7,9 +7,11 @@ import { isExternal } from './external-identity';
 import { applyContent } from './standards';
 import { standardContent, StandardContent } from './standards-schema';
 import { publishProjectEvent } from './activity';
+import { requireOpportunity } from './crm';
 
 export const setupSchema = z
   .object({
+    opportunityId: z.string().optional(),
     team: z
       .array(z.object({ role: z.enum(ProjectAssignmentRole), userId: z.string().min(1) }).strict())
       .max(20)
@@ -192,6 +194,24 @@ export async function setupProject(actor: Actor, input: z.infer<typeof setupSche
   return transaction(async (tx) => {
     await requireCapability(actor, 'PROJECT_CREATE', tx);
     await requireCapability(actor, 'PROJECT_ASSIGN', tx);
+    const opportunity = input.opportunityId
+      ? await requireOpportunity(actor, input.opportunityId, tx)
+      : null;
+    if (opportunity) {
+      await requireCapability(actor, 'CRM_MANAGE', tx);
+      if (opportunity.projectId) {
+        await requireProjectAccess(actor, opportunity.projectId, tx);
+        return tx.project.findUniqueOrThrow({ where: { id: opportunity.projectId } });
+      }
+      ensure(opportunity.status === 'WON', 'Mark the opportunity won before converting.');
+      ensure(
+        input.contactId === opportunity.contactId && !input.newClient,
+        'Conversion must retain the existing client contact.',
+      );
+      const client = await tx.contact.findUniqueOrThrow({ where: { id: opportunity.contactId } });
+      if (!client.types.includes('CLIENT'))
+        await tx.contact.update({ where: { id: client.id }, data: { types: { push: 'CLIENT' } } });
+    }
     const manager = await tx.user.findUnique({ where: { id: input.managerId } });
     ensure(manager?.active && !isExternal(manager), 'Choose an active Cedar Winds team member.');
     let contactId = input.contactId;
@@ -292,6 +312,15 @@ export async function setupProject(actor: Actor, input: z.infer<typeof setupSche
         create: { projectId: project.id, userId: member.userId, role: member.role },
       });
     await applyContent(tx, actor, project.id, content, { startDate: input.startDate });
+    if (opportunity) {
+      await tx.opportunity.update({
+        where: { id: opportunity.id },
+        data: { projectId: project.id, version: { increment: 1 } },
+      });
+      await audit(tx, actor.id, 'OPPORTUNITY_CONVERTED', 'Opportunity', opportunity.id, null, {
+        projectId: project.id,
+      });
+    }
     if (template)
       await tx.templateApplication.create({
         data: {

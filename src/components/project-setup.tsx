@@ -4,18 +4,18 @@ import { useRouter } from 'next/navigation';
 import { api, useApi } from '@/lib/client';
 import { Modal, ActionButton, ErrorBox } from './ui';
 import type { Template } from './templates';
-export function ProjectWizard({ close }: { close: () => void }) {
+export function ProjectWizard({ close, opportunity }: { close: () => void; opportunity?: {id:string;title:string;contactId:string;projectType:string;address:string;municipality:string;ownerId:string} }) {
   const [team, setTeam] = useState<Record<string, string>>({});
   const router = useRouter();
   const [step, setStep] = useState(0),
     [draft, setDraft] = useState({
-      name: '',
+      name: opportunity?.title || '',
       number: '',
-      projectType: '',
-      address: '',
-      municipality: '',
-      contactId: '',
-      managerId: '',
+      projectType: opportunity?.projectType || '',
+      address: opportunity?.address || '',
+      municipality: opportunity?.municipality || '',
+      contactId: opportunity?.contactId || '',
+      managerId: opportunity?.ownerId || '',
       startDate: new Date().toISOString().slice(0, 10),
       targetCompletion: '',
       templateId: '',
@@ -66,6 +66,7 @@ export function ProjectWizard({ close }: { close: () => void }) {
             <label className="check-inline">
               <input
                 type="checkbox"
+                disabled={!!opportunity}
                 checked={newClient}
                 onChange={(e) => setNewClient(e.target.checked)}
               />
@@ -88,10 +89,12 @@ export function ProjectWizard({ close }: { close: () => void }) {
                 Client
                 <select
                   aria-label="Client"
+                  disabled={!!opportunity}
                   value={draft.contactId}
                   onChange={(e) => setDraft({ ...draft, contactId: e.target.value })}
                 >
                   <option value="">Choose existing client…</option>
+                  {opportunity && !options.data?.clients.some(c=>c.id===opportunity.contactId) && <option value={opportunity.contactId}>Opportunity contact (will become Client)</option>}
                   {options.data?.clients.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.firstName} {c.lastName}
@@ -235,6 +238,7 @@ export function ProjectWizard({ close }: { close: () => void }) {
               className="primary"
               action={async () => {
                 const result = await api<{ id: string }>('standards/setup', {
+                  ...(opportunity ? {opportunityId:opportunity.id} : {}),
                   team: Object.entries(team)
                     .filter(([, userId]) => !!userId)
                     .map(([role, userId]) => ({ role, userId })),

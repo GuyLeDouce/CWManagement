@@ -16,7 +16,7 @@ Authenticated internal staff can open **HOW TO** at `/how-to` for searchable ope
 - First-class Projects with contacts, clients, internal assignments, lifecycle status/stage, dates, location, notes, and archive state.
 - Independent Contacts, Companies, authenticated Users, and Employee profiles.
 - Role-derived capabilities with explicit per-user grant/deny overrides and server-side project scoping.
-- Database-backed management dashboard, searchable/filterable projects, responsive project workspace, and honest placeholders for later modules.
+- Database-backed management dashboard, searchable/filterable projects, responsive project workspace, and scoped CRM, warranty and operational reporting workspaces.
 
 ## Time module retained
 
@@ -197,3 +197,6 @@ Critical coverage includes paid starts, DST weeks, travel state transitions, tas
 ## Before using for payroll
 
 This is a timekeeping and labour-cost export app. It does not calculate overtime, deductions, wage rates, vacation/statutory pay, or automatic break deductions. Accounting applies those policies to exported labour/travel hours. Confirm the pilot exports and approval process with your controller. Set up HTTPS, email delivery, backups, the real company artwork, and real employee permissions before general rollout.
+
+### Phase 8A operations
+Leads, warranty/service, scoped operational Reports, opt-in scheduled reminders and S3-compatible storage build on existing projects and portals. See docs/CRM.md, docs/WARRANTY.md, docs/REPORTING.md, docs/AUTOMATION.md and docs/PRODUCTION_RECOVERY.md. Deploy additive migrations before the app. Configure/validate private storage and cron separately; neither is automatically activated. QuickBooks live validation remains pending.

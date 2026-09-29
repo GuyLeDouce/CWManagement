@@ -74,3 +74,8 @@ Migration `202609240004_quickbooks_desktop` adds QuickBooksConnection, QuickBook
 ## Client display preferences
 
 Migration 202609290001_client_vision adds CLIENT_PREVIEW and ClientTaxDisplayMode. Settings has nonnullable clientTaxDisplayMode (FINAL_TOTAL_ONLY), clientFinancialSummaryEnabled (true), clientManagerVisible (false); Project has nullable overrides. Null means inherit the current company default. No historical financial values or snapshots are rewritten; displayed contract amounts derive from accepted proposal tax evidence and normalized contract adjustments.
+
+## Phase 8A
+OpportunityStage, LeadSource, Opportunity and CrmActivity separate sales work from Contacts. WarrantyRequest/WarrantyUpdate and StoredFile associations preserve service history. SavedReport stores user-owned filters. AutomationRun, AutomationLease and DeliveryRecord persist scheduler/delivery state and unique dedupe keys. Additive migrations add capabilities, opt-in settings, warranty dates, storage provider metadata, referential checks and evidence triggers. No financial tables are replaced.
+
+Phase 8A migrations: 202609300001_operations; 202609300002_operations_safety; 202609300003_warranty_retention; 202609300004_client_upload_origin. CLIENT_UPLOAD distinguishes client-submitted warranty evidence from STAFF and TRADE_UPLOAD. Migration deployment is additive; financial snapshots and accounting records are not rewritten.
