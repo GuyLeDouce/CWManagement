@@ -4,7 +4,7 @@ Status: **LIVE VALIDATION IN PROGRESS — not a blanket production-readiness sig
 
 ## Commit / deployment
 
-Phase 8A commit `4737970dfe3b154f406fc92e699070881c283890` was pushed and deployed successfully to the existing CWManagement Railway production service. Readiness commit `746d476c0ac366da41e314b0c8fdfaef718c770e` deployed successfully as `78b881c9-0751-433c-a436-2ba3a62f9ccb`. Latest tested deployment is `0e52ae432d392232aa450948b06ae68f09b26d90`, deployment `10d7fda0-b48b-49b0-8ce6-fda66a145693`, SUCCESS. Startup logs show all 16 migrations current before Next.js serves requests.
+Phase 8A commit `4737970dfe3b154f406fc92e699070881c283890` was pushed and deployed successfully to the existing CWManagement Railway production service. Readiness commit `746d476c0ac366da41e314b0c8fdfaef718c770e` deployed successfully as `78b881c9-0751-433c-a436-2ba3a62f9ccb`. The live business pilot ran on `0e52ae432d392232aa450948b06ae68f09b26d90`. The subsequent report/runner commit `dbc9ac0360035d14d406cb5964f24494e4e23a5f` deployed successfully as `5997b626-948a-482b-9018-5cf7178c7363`. Startup logs show all 16 migrations current before Next.js serves requests.
 
 ## Production migration state / database
 
@@ -24,7 +24,7 @@ All 16 migrations applied using `npm run db:migrate` inside the application envi
 
 ## Automation
 
-**LIVE_TESTED for controlled execution, deduplication and actual hourly cron firing**. Diagnostic `5ee92f98-b7f3-4d06-924b-415762ac595e` created one delivery record; repeated calls and a fresh container process created zero more, with no lease left behind. Strong scheduler credential configured without displaying it. Production rollout stage zero. Company automation and email are not enabled by this pass. A protected diagnostic exercises the durable lease and one in-app DeliveryRecord without email. The packaged cron runner was also executed inside the app container and exited successfully with DISABLED. This is not proof of an actual scheduled Railway firing. The existing CWManagement Scheduler service was deployed with the isolated HTTP runner as `dcdba246-1575-4b55-a6c8-25dadd3cde36`. It exited successfully with DISABLED. APP_URL and AUTOMATION_SECRET match the app. Railway read the uploaded config paths but did not apply cronSchedule initially. Nelson set it directly; the service now reports `0 * * * *` and next run 2026-09-30 13:00 UTC. A real timed firing completed at 2026-09-30 13:02:01 UTC with DISABLED and exited; Railway advanced nextCronRunAt to 14:00 UTC. Recurring execution is LIVE_TESTED, while reminder/email rollout intentionally stays disabled. The service currently uses a CLI-uploaded runner; updating scripts/run-scheduler.mjs requires deliberate redeployment of that small bundle unless GitHub source/config is subsequently connected.
+**LIVE_TESTED for controlled execution, deduplication and actual hourly cron firing**. Diagnostic `5ee92f98-b7f3-4d06-924b-415762ac595e` created one delivery record; repeated calls and a fresh container process created zero more, with no lease left behind. Strong scheduler credential configured without displaying it. Production rollout stage zero. Company automation and email are not enabled by this pass. A protected diagnostic exercises the durable lease and one in-app DeliveryRecord without email. The packaged cron runner was also executed inside the app container and exited successfully with DISABLED. That manual invocation alone did not prove scheduled firing; the subsequent timed-run evidence is recorded below. The existing CWManagement Scheduler service was deployed with the isolated HTTP runner as `dcdba246-1575-4b55-a6c8-25dadd3cde36`. It exited successfully with DISABLED. APP_URL and AUTOMATION_SECRET match the app. Railway read the uploaded config paths but did not apply cronSchedule initially. Nelson set it directly; the service now reports `0 * * * *` and next run 2026-09-30 13:00 UTC. A real timed firing completed at 2026-09-30 13:02:01 UTC with DISABLED and exited; Railway advanced nextCronRunAt to 14:00 UTC. Recurring execution is LIVE_TESTED, while reminder/email rollout intentionally stays disabled. The service currently uses a CLI-uploaded runner; updating scripts/run-scheduler.mjs requires deliberate redeployment of that small bundle unless GitHub source/config is subsequently connected.
 
 ## CRM / Warranty / Reports / Client Portal / Trade Portal / Client Vision / Time
 
@@ -69,8 +69,8 @@ Permit controlled internal pilot use after deployment health is confirmed. Do no
 - Integration: 125 passed, including portal, QuickBooks and readiness permissions/storage cleanup.
 - Focused QuickBooks: 33 passed (overlaps the above suites).
 - Dedicated scheduler recovery: 4 passed, including globally disabled diagnostic and fresh-connection dedupe.
-- Existing browser workflows: all 24 individual tests passed; Windows Next.js teardown hung and required stopping the verified test server; Playwright then reported 24 passed with exit code zero.
-- Added readiness-panel browser workflow: 1 passed, repeat action creates zero additional notifications.
+- Final full browser suite: 26 passed, exit code zero. Includes Owner diagnostic deduplication and Controller readiness access without employee-administration permission.
+- Final readiness screen correction shows validation timestamps, next expected scheduler contact and accurate email confirmation feedback. Full non-browser validation was rerun successfully after this correction.
 - Production build: passed.
 
 No production database was used for these automated suites. Logs are local ignored test output, not committed credentials.

@@ -17,7 +17,7 @@ test.beforeAll(async () => {
     throw new Error('Isolated database required');
   await db.settings.upsert({ where: { id: 'company' }, create: {}, update: {} });
   const users = [];
-  for (const role of ['OWNER', 'PM', 'CLIENT', 'SUBTRADE'] as Role[])
+  for (const role of ['OWNER', 'PM', 'CLIENT', 'SUBTRADE', 'CONTROLLER'] as Role[])
     users.push(
       await db.user.create({
         data: {
@@ -202,4 +202,18 @@ test('Owner reviews readiness and repeats one safe diagnostic without enabling r
   await expect(panel.getByRole('status').filter({ hasText: 'Scheduler test:' })).toContainText(
     '0 new notification',
   );
+});
+
+test('Controller opens readiness without gaining employee administration', async ({ page }) => {
+  await login(page, 'CONTROLLER');
+  await page.goto('/admin');
+  await expect(
+    page.getByRole('heading', { name: 'Production readiness', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText('Next expected scheduler contact:', { exact: false })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Employees & permissions', exact: true }),
+  ).toHaveCount(0);
+  const r = await page.request.get('/api/admin');
+  expect(r.status()).toBe(403);
 });

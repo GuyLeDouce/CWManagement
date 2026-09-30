@@ -26,6 +26,7 @@ type Readiness = {
     secretConfigured: boolean;
     lastRun: { status: string; startedAt: string } | null;
     lastTest: { startedAt: string } | null;
+    nextExpected: string | null;
     failures: number;
   };
   quickBooks: { id: string; name: string; mode: string; lastConnectedAt: string | null }[];
@@ -35,10 +36,22 @@ export function ProductionReadiness() {
   const [testId, setTestId] = useState(''),
     [result, setResult] = useState('');
   const run = async (kind: string, id = crypto.randomUUID()) => {
-    const r = await api<{ state?: string; generated?: number }>('business/readiness/' + kind, {
+    const r = await api<{
+      state?: string;
+      generated?: number;
+      confirmed?: boolean;
+      busy?: boolean;
+    }>('business/readiness/' + kind, {
       id,
     });
-    setResult(r.state || `Scheduler test: ${r.generated || 0} new notification(s).`);
+    setResult(
+      r.state ||
+        (r.confirmed
+          ? 'Email receipt confirmed.'
+          : r.busy
+            ? 'Scheduler is already running. Retry after it finishes.'
+            : `Scheduler test: ${r.generated || 0} new notification(s).`),
+    );
     q.refresh();
   };
   return (
@@ -80,6 +93,7 @@ export function ProductionReadiness() {
               {q.data.storage.lastTest && (
                 <>
                   <p>{q.data.storage.lastTest.message}</p>
+                  <p>Last validation: {new Date(q.data.storage.lastTest.date).toLocaleString()}</p>
                   <ul>
                     {Object.entries(q.data.storage.lastTest.checks || {}).map(([k, v]) => (
                       <li key={k}>
@@ -97,7 +111,12 @@ export function ProductionReadiness() {
                 delivery. Review uncertain outcomes before another test.
               </p>
               <ActionButton action={() => run('email')}>Send my test email</ActionButton>
-              {q.data.email.lastTest && <p>{q.data.email.lastTest.message}</p>}
+              {q.data.email.lastTest && (
+                <>
+                  <p>{q.data.email.lastTest.message}</p>
+                  <p>Last test: {new Date(q.data.email.lastTest.date).toLocaleString()}</p>
+                </>
+              )}
               {q.data.email.lastTest?.state === 'LIVE_TESTED' && !q.data.email.inboxConfirmed && (
                 <ActionButton
                   action={() => run('confirm-email', q.data!.email.lastTest!.requestId)}
@@ -125,6 +144,12 @@ export function ProductionReadiness() {
                   ? `${q.data.automation.lastRun.status} — ${q.data.automation.lastRun.startedAt}`
                   : 'None'}
               </p>
+              <p>
+                Next expected scheduler contact:{' '}
+                {q.data.automation.nextExpected
+                  ? new Date(q.data.automation.nextExpected).toLocaleString()
+                  : 'Not configured'}
+              </p>
               <ActionButton
                 action={async () => {
                   const id = testId || crypto.randomUUID();
@@ -141,6 +166,7 @@ export function ProductionReadiness() {
             </section>
             <section className="panel">
               <h3>QuickBooks</h3>
+              {!q.data.quickBooks.length && <p>No connection configured.</p>}
               {q.data.quickBooks.map((c) => (
                 <p key={c.id}>
                   {c.name}: {c.mode}. Last contact: {c.lastConnectedAt || 'Never'}

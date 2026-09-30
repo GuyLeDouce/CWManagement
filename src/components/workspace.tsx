@@ -102,7 +102,7 @@ export function Workspace({ path }: { path: string[] }) {
       (i.view === 'verify' && cap('TIME_APPROVE')) ||
       (['info', 'send'].includes(i.view) && cap('ACCOUNTING_ACCESS')) ||
       (i.view === 'visits' && cap('DAILY_LOG_CREATE')) ||
-      (i.view === 'admin' && cap('SETTINGS_MANAGE')),
+      (i.view === 'admin' && (cap('SETTINGS_MANAGE') || has('OWNER', 'CONTROLLER'))),
   );
   if (!managementUser) visible.unshift({ view: 'time', label: 'Time', icon: Clock3 });
   const management = visible.length > 1;
@@ -251,7 +251,7 @@ export function Workspace({ path }: { path: string[] }) {
             <InfoScreen zone={data.companyTimezone} />
           ) : view === 'admin' ? (
             <>
-              <AdminScreen zone={data.companyTimezone} />
+              {cap('SETTINGS_MANAGE') && <AdminScreen zone={data.companyTimezone} />}
               <ReminderSettings />
               {has('OWNER', 'CONTROLLER') && <ProductionReadiness />}
             </>
