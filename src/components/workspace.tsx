@@ -35,12 +35,7 @@ import { InfoScreen } from './info';
 import { AdminScreen } from './admin';
 import { VisitsScreen } from './visits';
 import { ErrorBox, Loading, ActionButton, Modal } from './ui';
-import {
-  ContactsScreen,
-  DashboardScreen,
-  ProjectsScreen,
-  ProjectScreen,
-} from './management';
+import { ContactsScreen, DashboardScreen, ProjectsScreen, ProjectScreen } from './management';
 import { NotificationScreen } from './notifications';
 import { FinancialsScreen } from './financials';
 import { QuickBooksScreen } from './quickbooks';
@@ -48,6 +43,7 @@ import { TemplatesScreen } from './templates';
 import { InternalHelp, ContextualHelp } from './internal-help';
 import { WorkCentre, GlobalSearch, RecentProjects } from './productivity';
 import { CrmWorkspace } from './crm';
+import { ProductionReadiness } from './production-readiness';
 import { ReportsWorkspace, ReminderSettings } from './business-reports';
 const items = [
   { view: '', label: 'Dashboard', icon: LayoutDashboard },
@@ -85,8 +81,7 @@ export function Workspace({ path }: { path: string[] }) {
   const controllerLocked = has('CONTROLLER') && !has('OWNER', 'PM') && !data?.current;
   const visible = items.filter(
     (i) =>
-      (['', 'projects', 'schedule', 'time'].includes(i.view) &&
-        managementUser) ||
+      (['', 'projects', 'schedule', 'time'].includes(i.view) && managementUser) ||
       (i.view === 'leads' && cap('CRM_VIEW')) ||
       (i.view === 'reports' && cap('REPORT_VIEW')) ||
       i.view === 'notifications' ||
@@ -255,7 +250,11 @@ export function Workspace({ path }: { path: string[] }) {
           ) : view === 'info' ? (
             <InfoScreen zone={data.companyTimezone} />
           ) : view === 'admin' ? (
-            <><AdminScreen zone={data.companyTimezone} /><ReminderSettings /></>
+            <>
+              <AdminScreen zone={data.companyTimezone} />
+              <ReminderSettings />
+              {has('OWNER', 'CONTROLLER') && <ProductionReadiness />}
+            </>
           ) : view === 'visits' ? (
             <VisitsScreen userId={data.user.id} zone={data.companyTimezone} />
           ) : view === 'time' || Boolean(token) || (!managementUser && view === '') ? (

@@ -21,3 +21,17 @@ The durable inbox is authoritative even when email is disabled/fails. Production
 Connector health uses three configured polling intervals, with a minimum two-hour grace, rather than treating a configured connection as live. Weekly client review configuration also requires CLIENT_CONTENT_PUBLISH. WARRANTY_MANAGE remains required for warranty dates.
 
 Scheduler protocol tests use npm run test:automation with DATABASE_URL pointing exclusively to the dedicated cwmanagement_phase8a_automation_test database after migration deployment. They mock SMTP but execute real PostgreSQL leases, scans, notifications, retries and delivery state. Run browser and other integration suites sequentially when sharing a test database, because company settings are shared fixtures.
+
+## Controlled production rollout
+
+Production defaults to stage 0; non-production defaults to all stages for isolated regression tests. `AUTOMATION_ROLLOUT_STAGE` permits progressively: 1 diagnostic only, 2 internal task/follow-up/health, 3 internal warranty, 4 trade reminders, 5 client reminders, 6 opted-in digest, 7 opted-in client summary. Invalid values fail closed. Generation and delivery both enforce the stage; company enablement and audience authorization still apply. Changing the stage never changes QuickBooks mode.
+
+Settings ? Production readiness allows Owner/Controller to run one internal inbox diagnostic while company automation remains disabled. It uses the same database lease and delivery uniqueness and sends no email. Repeat the same request ID to verify no duplicate. The secured endpoint accepts an optional strict diagnostic body containing `userId` (active Owner/Controller only) and UUID `requestId`; omitted body performs the normal enabled job. Authentication occurs before parsing and authenticated calls are rate-limited. No secrets go in query strings.
+
+### Exact Railway Cron service setup
+
+Use a separate Cron service from this same repository/image, not the web application's start command. Set start command to `node scripts/run-scheduler.mjs`, remove its health check and pre-deploy command, and set Railway's cron schedule deliberately. Configure `APP_URL` and reference the application's `AUTOMATION_SECRET` through Railway's private variable reference mechanism. This process does not need database credentials; it POSTs the secured endpoint and exits. It logs only safe counts/status. Do not add a public domain or a persistent timer. Do not copy the web startup migration command onto the cron process.
+
+Initially run it manually with company automation disabled and verify a DISABLED run, then use the explicit diagnostic path to verify one delivery and retry deduplication. Record a real scheduled firing before claiming cron LIVE_TESTED. Keep global email off until a single operator SMTP test and inbox confirmation succeed. Configure `AUTOMATION_EXPECTED_INTERVAL_MINUTES` on the app only if the actual schedule warrants overdue diagnostics; that variable does not schedule anything.
+
+The container operator helper `node scripts/production-diagnostic.mjs scheduler <UUID>` performs the secured diagnostic twice and reports safe counts. Repeating it in a fresh process with the same UUID exercises persistent dedupe. It creates/revokes a five-minute audited operational session for the configured Owner; it does not validate their password, impersonate a client or alter normal enablement.

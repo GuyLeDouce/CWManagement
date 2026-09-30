@@ -3,7 +3,7 @@
   "build": { "builder": "DOCKERFILE", "dockerfilePath": "Dockerfile" },
   "deploy": {
     "preDeployCommand": "npm run db:migrate",
-    "startCommand": "node server.js",
+    "startCommand": "node scripts/start-production.mjs",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",

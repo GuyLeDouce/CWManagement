@@ -145,8 +145,31 @@ export const businessGuides = [
     ],
     next: 'The worker creates deduplicated inbox notifications for due selections, tasks, trades, warranty, sales follow-ups and QuickBooks health. Summaries contain safe counts and secure links.',
     notes: [
-      'Nothing runs until an external cron calls the protected endpoint and company reminders are enabled. In-app notifications are authoritative. An uncertain SMTP delivery requires review; it is not automatically resent. No message content, internal pricing or legal warranty rules are inferred.',
+      'Normal reminders require an external cron, company enablement and the configured production rollout stage. The separate internal readiness test does not enable normal reminders. In-app notifications are authoritative. An uncertain SMTP delivery requires review; it is not automatically resent. No message content, internal pricing or legal warranty rules are inferred.',
     ],
     related: ['notifications', 'business-reports'],
+  }),
+  guide('business', {
+    id: 'production-readiness',
+    title: 'Check production readiness',
+    summary:
+      'Test storage, your email delivery and one harmless internal reminder before company rollout.',
+    when: 'An Owner or Controller is preparing or checking the live service.',
+    destination: 'admin',
+    roles: ['OWNER', 'CONTROLLER'],
+    updated: '2026-09-29',
+    steps: [
+      'Open Settings and find Production readiness. Configuration alone is not proof of a successful live test.',
+      'After your administrator configures private object storage, run Test private storage and access. It creates temporary diagnostic identities and small files, checks access rules and removes the file bytes. Archived test records remain for audit.',
+      'Choose Send my test email once. Check your inbox and confirm receipt. If the result is uncertain, check the provider before sending again.',
+      'Run the internal scheduler test twice. The first creates one inbox notification; the second must create zero. Neither sends email or enables reminders.',
+      'Ask the administrator to configure the protected external scheduler. Roll reminders out gradually; company enablement and deployment rollout stage must both permit delivery.',
+    ],
+    next: 'Successful tests are recorded with the current configuration. Changes to storage or email configuration require a new test. QuickBooks live validation remains separate.',
+    notes: [
+      'Storage failures or interrupted tests require cleanup review. Keep financial and approval evidence; do not delete the database to clean up tests.',
+      'The in-app scheduler test proves durable execution, not that an external cron is running. SMTP submission is not proof of inbox delivery.',
+    ],
+    related: ['reminders'],
   }),
 ];

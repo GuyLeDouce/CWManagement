@@ -11,6 +11,7 @@ import { ensure } from './errors';
 import { requireOpportunity } from './crm';
 import { clientProject } from './client-projections';
 import { workQueue } from './productivity';
+import { rolloutAllows } from './automation-rollout';
 
 type Candidate = {
   userId: string;
@@ -25,6 +26,8 @@ type Candidate = {
 export async function deliveryAllowed(tx: Tx, c: Omit<Candidate, 'period'>) {
   const u = await tx.user.findUnique({ where: { id: c.userId } });
   if (!u?.active) return false;
+  if (!rolloutAllows(c.kind, u.roles)) return false;
+  if (c.kind === 'READINESS_TEST') return true;
   try {
     if (c.kind === 'CRM') {
       const a = await tx.crmActivity.findUnique({ where: { id: c.entityId } });
@@ -153,7 +156,10 @@ export async function enqueueReminder(c: Candidate, emailEnabled: boolean) {
     return true;
   });
 }
-export async function runAutomation(now = new Date()) {
+export async function runAutomation(
+  now = new Date(),
+  diagnostic?: { userId: string; requestId: string },
+) {
   const token = randomUUID();
   const lease = await transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('cw-automation',0))`;
@@ -171,6 +177,32 @@ export async function runAutomation(now = new Date()) {
   let generated = 0,
     delivered = 0;
   try {
+    if (diagnostic) {
+      const user = await db.user.findUnique({ where: { id: diagnostic.userId } });
+      ensure(
+        user?.active && rolloutAllows('READINESS_TEST', user.roles),
+        'Owner or Controller test recipient required.',
+        403,
+      );
+      generated = (await enqueueReminder(
+        {
+          userId: user.id,
+          kind: 'READINESS_TEST',
+          entityId: diagnostic.requestId,
+          period: 'readiness',
+          title: 'CWManagement internal scheduler test',
+          actionUrl: '/notifications',
+        },
+        false,
+      ))
+        ? 1
+        : 0;
+      await db.automationRun.update({
+        where: { id: run.id },
+        data: { status: 'TEST_SUCCEEDED', completedAt: new Date(), generated, delivered: 0 },
+      });
+      return { diagnostic: true, generated, delivered: 0 };
+    }
     const settings = await db.settings.findUniqueOrThrow({ where: { id: 'company' } });
     if (!settings.automationEnabled) {
       await db.automationRun.update({

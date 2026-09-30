@@ -7,7 +7,14 @@ import { internalWarranty, createWarranty, actWarranty } from './warranty';
 import { availableReports, runReport, saveReport } from './portfolio-reports';
 import { automationSettings, reviewDelivery } from './automation';
 import { businessDashboard } from './business-dashboard';
-import { storageConfigured, storageDriver } from './storage';
+import {
+  readiness,
+  cleanupStorage,
+  testStorage,
+  testEmail,
+  confirmEmail,
+  testScheduler,
+} from './readiness';
 export async function dispatchBusiness(
   actor: Actor,
   get: boolean,
@@ -17,19 +24,14 @@ export async function dispatchBusiness(
 ) {
   if (get && path === 'dashboard') return businessDashboard(actor);
   if (!get && path === 'automation/review') return reviewDelivery(actor, body);
-  if (get && path === 'readiness') {
-    await requireCapability(actor, 'SETTINGS_MANAGE');
-    await db.$queryRaw`SELECT 1`;
-    const migrations = await db.$queryRaw<
-      { migration_name: string }[]
-    >`SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name DESC LIMIT 1`;
-    return {
-      database: true,
-      latestMigration: migrations[0]?.migration_name || null,
-      storageConfigured: storageConfigured(),
-      storageDriver: storageDriver(),
-      automationConfigured: (process.env.AUTOMATION_SECRET?.length || 0) >= 32,
-    };
+  if (get && path === 'readiness') return readiness(actor);
+  if (!get && path.startsWith('readiness/')) {
+    const { id } = z.object({ id: z.uuid() }).strict().parse(body);
+    if (path === 'readiness/cleanup-storage') return cleanupStorage(actor, id);
+    if (path === 'readiness/storage') return testStorage(actor, id);
+    if (path === 'readiness/email') return testEmail(actor, id);
+    if (path === 'readiness/confirm-email') return confirmEmail(actor, id);
+    if (path === 'readiness/scheduler') return testScheduler(actor, id);
   }
   if (path === 'crm') return get ? crm(actor) : saveOpportunity(actor, body);
   if (!get && path === 'crm/activity') return saveCrmActivity(actor, body);

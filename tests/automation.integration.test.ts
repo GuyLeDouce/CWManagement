@@ -139,3 +139,25 @@ it('quarantines uncertain SMTP and interrupted sends without automatically dupli
   );
   expect(sendEmail).toHaveBeenCalledTimes(sent);
 });
+
+it('runs a harmless diagnostic while globally disabled and deduplicates across restart', async () => {
+  await db.settings.update({
+    where: { id: 'company' },
+    data: { automationEnabled: false, automationEmailEnabled: false },
+  });
+  const requestId = randomUUID();
+  expect(await runAutomation(new Date(), { userId: owner.id, requestId })).toMatchObject({
+    generated: 1,
+  });
+  await db.$disconnect();
+  expect(await runAutomation(new Date(), { userId: owner.id, requestId })).toMatchObject({
+    generated: 0,
+  });
+  expect(
+    await db.deliveryRecord.count({ where: { kind: 'READINESS_TEST', entityId: requestId } }),
+  ).toBe(1);
+  expect(await db.automationLease.count({ where: { id: 'reminders' } })).toBe(0);
+  expect(
+    (await db.settings.findUniqueOrThrow({ where: { id: 'company' } })).automationEnabled,
+  ).toBe(false);
+});

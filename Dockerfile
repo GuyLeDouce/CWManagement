@@ -22,6 +22,7 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/prisma ./prisma
 COPY --from=build --chown=node:node /app/src/lib/crypto.ts /app/src/lib/time.ts /app/src/lib/errors.ts ./src/lib/
 COPY --from=build --chown=node:node /app/package.json ./package.json
+COPY --from=build --chown=node:node /app/scripts ./scripts
 USER node
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "scripts/start-production.mjs"]

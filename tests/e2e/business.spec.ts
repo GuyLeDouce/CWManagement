@@ -147,13 +147,11 @@ test('warranty client submission, staff assignment, trade evidence, staff review
   await trade.goto(`/trade/projects/${projectId}/warranty`);
   const work = trade.locator('.service-card');
   await expect(work.getByText('Adjust entry door', { exact: true })).toBeVisible();
-  await work
-    .locator('input[type=file]')
-    .setInputFiles({
-      name: 'completion.png',
-      mimeType: 'image/png',
-      buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
-    });
+  await work.locator('input[type=file]').setInputFiles({
+    name: 'completion.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('89504e470d0a1a0a', 'hex'),
+  });
   await expect(work.getByRole('link', { name: 'completion.png' })).toBeVisible();
   await work.getByLabel('Action', { exact: true }).selectOption('ready');
   await work.getByRole('button', { name: 'Save update' }).click();
@@ -183,4 +181,25 @@ test('PM filters schedule report and opens the project', async ({ page }) => {
   await expect(page.getByRole('cell', { name: 'Browser report task ' + key })).toBeVisible();
   await page.getByRole('link', { name: 'Open record' }).click();
   await expect(page).toHaveURL(`/projects/${projectId}/schedule`);
+});
+
+test('Owner reviews readiness and repeats one safe diagnostic without enabling reminders', async ({
+  page,
+}) => {
+  await login(page, 'OWNER');
+  await page.goto('/admin');
+  const panel = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Production readiness', exact: true }) })
+    .first();
+  await expect(panel.getByText(/Configuration is not live validation/)).toBeVisible();
+  const button = panel.getByRole('button', { name: 'Run / repeat internal test' });
+  await button.click();
+  await expect(panel.getByRole('status').filter({ hasText: 'Scheduler test:' })).toContainText(
+    '1 new notification',
+  );
+  await button.click();
+  await expect(panel.getByRole('status').filter({ hasText: 'Scheduler test:' })).toContainText(
+    '0 new notification',
+  );
 });

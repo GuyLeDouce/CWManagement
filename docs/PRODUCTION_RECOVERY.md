@@ -29,3 +29,7 @@ Archive projects and revoke portal grants; do not casually hard-delete contacts,
 ## Rehearsal log
 
 Record date, operator, backup identifier, isolated target, application commit, migration status, record/financial checks, object checks, login checks, measured restore duration and result. Do not include database URLs, passwords, hashes, tokens or bucket credentials. Production restore, S3 compatibility and scheduled SMTP delivery remain live validation tasks.
+
+## Current operator report (2026-09-30)
+
+Nelson reports backups enabled and point-in-time recovery staged in Railway. Confirm that staged changes are applied and record the actual recoverable time window, last successful backup and retention before relying on recovery. No restore was performed. Bucket backup/version history remains unverified.
