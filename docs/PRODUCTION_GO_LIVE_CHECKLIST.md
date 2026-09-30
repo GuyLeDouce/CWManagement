@@ -36,15 +36,15 @@ Railway skipped the earlier configured pre-deploy hook; production migrations we
 - [x] Provider round-trip, metadata, authenticated download, anonymous denial, client isolation, trade record isolation and archive denial all pass.
 - [x] Diagnostic bytes removed; temporary sessions/users/grants revoked; archive/audit evidence retained.
 - [ ] Retry any pending cleanup shown in Settings before treating the test as verified.
-- [ ] Inventory legacy local metadata and reconcile missing bytes; never silently switch metadata providers.
+- [x] Inventory legacy local metadata (zero active legacy records found) and reconcile missing bytes; never silently switch metadata providers.
 - [ ] Document actual bucket recovery/retention capabilities; private does not mean backed up.
 
 Railway's current buckets normally use virtual-hosted URLs; use the bucket Credentials tab's endpoint and URL style, not an invented endpoint. See [Railway storage guidance](https://docs.railway.com/storage-buckets).
 
 ## Email
 
-- [ ] Send exactly one operator-requested test from Settings.
-- [ ] SMTP accepts the message; operator confirms inbox receipt.
+- [x] Send an operator-requested test (container helper uses the same secured action); SMTP accepted the corrected retest.
+- [x] SMTP accepts the message; Nelson confirmed inbox receipt and the confirmation is recorded.
 - [ ] Test password reset without changing an existing working password unnecessarily.
 - [ ] Test one explicitly designated client invitation and one trade invitation.
 - [ ] Test one reminder, then one opted-in digest only after internal delivery validation.
@@ -57,7 +57,8 @@ The test has a durable request ID and does not repeat the same request. SMTP acc
 - [x] Run internal diagnostic twice with the same request ID: one notification and one DeliveryRecord total.
 - [x] Repeat in a fresh process: zero additional delivery records; lease released.
 - [x] Confirm unauthorized scheduler request returns 401.
-- [ ] Configure external Railway Cron, verify one scheduled invocation, record time.
+- [x] Configure external Railway Cron with matching credentials and hourly schedule.
+- [x] Timed firing observed 2026-09-30 13:02:01 UTC, DISABLED and clean exit; next run 14:00 UTC.
 - [ ] Keep company automation/email disabled until diagnostics pass and operator authorizes rollout.
 - [ ] Stage 1: internal diagnostic only; stage 2: internal task/follow-up; stage 3: internal warranty; stage 4: trades; stage 5: clients; stage 6: opted-in digest; stage 7: opted-in project summary.
 

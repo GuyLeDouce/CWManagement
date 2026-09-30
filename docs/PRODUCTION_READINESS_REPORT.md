@@ -4,7 +4,7 @@ Status: **LIVE VALIDATION IN PROGRESS — not a blanket production-readiness sig
 
 ## Commit / deployment
 
-Phase 8A commit `4737970dfe3b154f406fc92e699070881c283890` was pushed and deployed successfully to the existing CWManagement Railway production service. Readiness commit `746d476c0ac366da41e314b0c8fdfaef718c770e` deployed successfully as `78b881c9-0751-433c-a436-2ba3a62f9ccb`. Startup logs show all 16 migrations current before Next.js serves requests.
+Phase 8A commit `4737970dfe3b154f406fc92e699070881c283890` was pushed and deployed successfully to the existing CWManagement Railway production service. Readiness commit `746d476c0ac366da41e314b0c8fdfaef718c770e` deployed successfully as `78b881c9-0751-433c-a436-2ba3a62f9ccb`. Latest tested deployment is `0e52ae432d392232aa450948b06ae68f09b26d90`, deployment `10d7fda0-b48b-49b0-8ce6-fda66a145693`, SUCCESS. Startup logs show all 16 migrations current before Next.js serves requests.
 
 ## Production migration state / database
 
@@ -16,19 +16,29 @@ All 16 migrations applied using `npm run db:migrate` inside the application envi
 
 ## Storage
 
-**LIVE_TESTED / VERIFIED** against the configured private Railway bucket. Diagnostic `60ff1a8b-c5bb-477e-8e2b-7a66d2ad7bf6` passed real upload/readback, metadata, internal authenticated download, anonymous denial, authorized client access, internal/unrelated-client denial, assigned-trade access, unrelated-trade/client-file denial, archive denial and cleanup. Temporary access was revoked and bytes removed. Archived evidence remains. Bucket recovery policy still requires review.
+**LIVE_TESTED / VERIFIED** against the configured private Railway bucket. Diagnostic `60ff1a8b-c5bb-477e-8e2b-7a66d2ad7bf6` passed real upload/readback, metadata, internal authenticated download, anonymous denial, authorized client access, internal/unrelated-client denial, assigned-trade access, unrelated-trade/client-file denial, archive denial and cleanup. Temporary access was revoked and bytes removed. Archived evidence remains. Production inventory found zero active legacy local file records before the pilot. Bucket recovery policy still requires review.
 
 ## SMTP
 
-**CONFIGURED; corrective live retest pending**. First test failed before SMTP connection with EDNS. Read-only comparison with the working CWTimeClock service found only SMTP_HOST differed. Corrected that single variable; credentials remain unchanged. No inbox-delivery claim until a successful retest and confirmation.
+**LIVE_TESTED with operator-confirmed inbox receipt**. First test failed before SMTP connection with EDNS. Read-only comparison with the working CWTimeClock service found only SMTP_HOST differed. Corrected that single variable; credentials remain unchanged. Retest `91eaf4b3-cdf5-4920-b322-1d2a763e986d` was accepted by SMTP on 2026-09-30. Nelson confirmed receipt; confirmation was recorded through the authorized readiness action. Password-reset, client/trade invitation and opted-in digest delivery remain separate checks.
 
 ## Automation
 
-**LIVE_TESTED for controlled execution/deduplication; external cron pending**. Diagnostic `5ee92f98-b7f3-4d06-924b-415762ac595e` created one delivery record; repeated calls and a fresh container process created zero more, with no lease left behind. Strong scheduler credential configured without displaying it. Production rollout stage zero. Company automation and email are not enabled by this pass. A protected diagnostic exercises the durable lease and one in-app DeliveryRecord without email. External scheduled invocation is a separate deployment acceptance item.
+**LIVE_TESTED for controlled execution, deduplication and actual hourly cron firing**. Diagnostic `5ee92f98-b7f3-4d06-924b-415762ac595e` created one delivery record; repeated calls and a fresh container process created zero more, with no lease left behind. Strong scheduler credential configured without displaying it. Production rollout stage zero. Company automation and email are not enabled by this pass. A protected diagnostic exercises the durable lease and one in-app DeliveryRecord without email. The packaged cron runner was also executed inside the app container and exited successfully with DISABLED. This is not proof of an actual scheduled Railway firing. The existing CWManagement Scheduler service was deployed with the isolated HTTP runner as `dcdba246-1575-4b55-a6c8-25dadd3cde36`. It exited successfully with DISABLED. APP_URL and AUTOMATION_SECRET match the app. Railway read the uploaded config paths but did not apply cronSchedule initially. Nelson set it directly; the service now reports `0 * * * *` and next run 2026-09-30 13:00 UTC. A real timed firing completed at 2026-09-30 13:02:01 UTC with DISABLED and exited; Railway advanced nextCronRunAt to 14:00 UTC. Recurring execution is LIVE_TESTED, while reminder/email rollout intentionally stays disabled. The service currently uses a CLI-uploaded runner; updating scripts/run-scheduler.mjs requires deliberate redeployment of that small bundle unless GitHub source/config is subsequently connected.
 
 ## CRM / Warranty / Reports / Client Portal / Trade Portal / Client Vision / Time
 
-**CODE_VALIDATED; full production business workflow pending**. Deployed route/API smoke evidence is separate from the realistic full-project manual script. Do not infer approvals, time tracking or file workflows work merely from a 200 response.
+**LIVE_TESTED for the controlled API pilot**, ID `fd0d9238-de7f-4320-8fcb-8012a028a3b5`, project `cmuo3blgh000qlq0191qxfbbx` (now archived):
+
+- Actual password logins succeeded for six disposable Owner/PM/client/trade identities.
+- CRM opportunity and follow-up created, marked Won, converted through the real setup API; repeated conversion returned the same project.
+- Client submitted service request; PM accepted/assigned; trade marked ready; PM completed; client verified; PM closed.
+- Other client/trade could not see or act on that service; trade could not close it. Cross-project and cross-portal requests were rejected.
+- Client Vision projection equalled the actual authorized client's projection; forbidden-key check passed.
+- Project/task/financial/CRM/time/warranty reports ran; PM project filter did not expose an unrelated project.
+- Test projects archived; users deactivated/password hashes cleared, sessions/tokens revoked, portal grants revoked and test stage deactivated. Audit/warranty/opportunity history retained.
+
+This API pilot did **not** complete the full visual/mobile business walkthrough, warranty attachment upload, estimate/proposal/CO/PO approval sequence or actual employee clocking. Time report success is not time-entry validation. Those remain explicitly pending in PRODUCTION_PILOT_WORKFLOW.md.
 
 ## QuickBooks
 
@@ -64,3 +74,7 @@ Permit controlled internal pilot use after deployment health is confirmed. Do no
 - Production build: passed.
 
 No production database was used for these automated suites. Logs are local ignored test output, not committed credentials.
+
+## Deployment variable changes
+
+Names only: `STORAGE_DRIVER`, `AUTOMATION_SECRET`, `AUTOMATION_ROLLOUT_STAGE`, `SMTP_HOST`. Existing SMTP credentials were not changed. Diagnostic interval configured to match the hourly schedule: `AUTOMATION_EXPECTED_INTERVAL_MINUTES`. No secret values are committed or recorded here.

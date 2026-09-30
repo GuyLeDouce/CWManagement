@@ -6,8 +6,8 @@ const db = new PrismaClient(),
   id = process.argv[3] || randomUUID();
 let sessionId;
 try {
-  if (!['storage', 'email', 'scheduler', 'inspect', 'smoke'].includes(kind))
-    throw Error('Choose storage, email, scheduler, inspect or smoke.');
+  if (!['storage', 'email', 'confirm-email', 'scheduler', 'inspect', 'smoke'].includes(kind))
+    throw Error('Choose storage, email, confirm-email, scheduler, inspect or smoke.');
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw Error('A UUID request ID is required.');
   const origin = new URL(process.env.APP_URL || '');
   if (origin.protocol !== 'https:' || origin.pathname !== '/')

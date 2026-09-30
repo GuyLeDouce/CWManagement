@@ -35,3 +35,11 @@ Use a separate Cron service from this same repository, not the web application's
 Initially run it manually with company automation disabled and verify a DISABLED run, then use the explicit diagnostic path to verify one delivery and retry deduplication. Record a real scheduled firing before claiming cron LIVE_TESTED. Keep global email off until a single operator SMTP test and inbox confirmation succeed. Configure `AUTOMATION_EXPECTED_INTERVAL_MINUTES` on the app only if the actual schedule warrants overdue diagnostics; that variable does not schedule anything.
 
 The container operator helper `node scripts/production-diagnostic.mjs scheduler <UUID>` performs the secured diagnostic twice and reports safe counts. Repeating it in a fresh process with the same UUID exercises persistent dedupe. It creates/revokes a five-minute audited operational session for the configured Owner; it does not validate their password, impersonate a client or alter normal enablement.
+
+## Actual first deployment
+
+The prepared runner was deployed directly to the operator-created CWManagement Scheduler service as a small CLI upload (Dockerfile.cron, scripts/run-scheduler.mjs and the cron config renamed railway.json). It ran once and exited with DISABLED. The uploaded configuration paths were recognized but effective cronSchedule remained null; set Cron Schedule explicitly in the service Settings and verify nextCronRunAt. Never infer cron is scheduled from a successful one-off deployment. Until GitHub source/config is connected, runner code updates need an explicit repeat deployment of this isolated bundle.
+
+Nelson subsequently applied the hourly schedule directly in service Settings. Railway reports `0 * * * *` and a future nextCronRunAt. The app's expected interval is 60 minutes; company automation/email remain disabled and rollout stage is zero.
+
+Live observation: the scheduled runner fired at 2026-09-30 13:02:01 UTC, returned DISABLED and exited; Railway advanced the next run to 14:00 UTC. The durable diagnostic separately proved one DeliveryRecord across repeats and fresh processes. This validates execution/deduplication, not broad reminder rollout.
