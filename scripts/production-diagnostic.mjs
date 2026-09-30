@@ -16,10 +16,15 @@ try {
     where: {
       email: process.env.OWNER_EMAIL?.trim().toLowerCase(),
       active: true,
-      roles: { equals: ['OWNER'] },
+      roles: { has: 'OWNER' },
     },
   });
-  if (!process.env.OWNER_EMAIL || !owner) throw Error('Configured active Owner required.');
+  if (
+    !process.env.OWNER_EMAIL ||
+    !owner ||
+    owner.roles.some((r) => ['CLIENT', 'SUBTRADE', 'VENDOR'].includes(r))
+  )
+    throw Error('Configured active Owner required.');
   // Explicitly authorized operational test session. Does not verify the Owner password.
   const token = randomBytes(32).toString('base64url');
   const session = await db.session.create({

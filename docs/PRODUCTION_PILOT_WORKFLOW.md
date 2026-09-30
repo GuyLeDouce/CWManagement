@@ -28,3 +28,7 @@ For each step record date, tester, record IDs, expected result, actual result, p
 Archive the project; revoke client/trade grants; deactivate disposable users and contacts; clear their sessions/tokens. Keep immutable proposals, selections, approvals, COs, commitments, actuals, warranty history and audit evidence. Do not delete production records with SQL to make reports look clean. Label financial test records and filter/archive appropriately. If a test reached QuickBooks, stop and use the Controller's documented accounting reconciliation process; local deletion is not reversal.
 
 Readiness storage diagnostics remove only their own small object bytes, archive metadata/project and revoke temporary identities. Interrupted cleanup can be retried in Settings using its recorded ID. Bucket/database recovery must preserve metadata-to-object correspondence.
+
+## Optional controlled API pilot helper
+
+`node scripts/production-business-smoke.mjs --run` inside the production app creates clearly labelled disposable users and a test project, exercises password login, CRM follow-up/conversion, warranty transitions, reports and portal isolation, then archives/revokes test access. It requires normal automation disabled, never queues accounting, never sends email, and preserves history. Run only with operator authorization. It is not a substitute for visual/mobile review, estimate/proposal/financial approval or real employee clock validation. Interrupted runs require review of TEST records/audit IDs before rerunning.

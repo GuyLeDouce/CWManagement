@@ -8,8 +8,8 @@ Record operator, date, deployed commit and actual result for every live check. A
 - [x] Correct Railway CWManagement application/production service and linked Postgres inspected.
 - [x] All 16 migrations applied in production using migrate deploy; no reset/db push.
 - [x] Nelson confirmed existing Owner login works.
-- [ ] Deploy readiness changes; verify deployed SHA and startup migration log.
-- [ ] Confirm health, login and scoped pages on the new deployment.
+- [x] Deploy readiness changes; verify deployed SHA and startup migration log.
+- [x] Confirm health, login and scoped pages on the new deployment.
 - [ ] Verify backup schedule, retention and most recent successful backup before broader use.
 
 Migration risk: no table drops or data resets were found. Earlier migrations replace selected Change Order constraints and AccountingSyncMapping uniqueness; those are not purely additive changes. Phase 8A adds domains, fields, checks and retention guards. The entire 16-migration chain was applied to a fresh isolated database. No new schema migration is introduced by this readiness pass. Code rollback does not undo migrations.
@@ -33,8 +33,8 @@ Railway skipped the earlier configured pre-deploy hook; production migrations we
 ## Storage
 
 - [ ] Settings → Production readiness: run private storage test.
-- [ ] Provider round-trip, metadata, authenticated download, anonymous denial, client isolation, trade record isolation and archive denial all pass.
-- [ ] Diagnostic bytes removed; temporary sessions/users/grants revoked; archive/audit evidence retained.
+- [x] Provider round-trip, metadata, authenticated download, anonymous denial, client isolation, trade record isolation and archive denial all pass.
+- [x] Diagnostic bytes removed; temporary sessions/users/grants revoked; archive/audit evidence retained.
 - [ ] Retry any pending cleanup shown in Settings before treating the test as verified.
 - [ ] Inventory legacy local metadata and reconcile missing bytes; never silently switch metadata providers.
 - [ ] Document actual bucket recovery/retention capabilities; private does not mean backed up.
@@ -54,9 +54,9 @@ The test has a durable request ID and does not repeat the same request. SMTP acc
 
 ## Automation rollout
 
-- [ ] Run internal diagnostic twice with the same request ID: one notification and one DeliveryRecord total.
-- [ ] Repeat in a fresh process: zero additional delivery records; lease released.
-- [ ] Confirm unauthorized scheduler request returns 401.
+- [x] Run internal diagnostic twice with the same request ID: one notification and one DeliveryRecord total.
+- [x] Repeat in a fresh process: zero additional delivery records; lease released.
+- [x] Confirm unauthorized scheduler request returns 401.
 - [ ] Configure external Railway Cron, verify one scheduled invocation, record time.
 - [ ] Keep company automation/email disabled until diagnostics pass and operator authorizes rollout.
 - [ ] Stage 1: internal diagnostic only; stage 2: internal task/follow-up; stage 3: internal warranty; stage 4: trades; stage 5: clients; stage 6: opted-in digest; stage 7: opted-in project summary.

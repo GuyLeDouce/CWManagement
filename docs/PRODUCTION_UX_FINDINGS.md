@@ -4,6 +4,7 @@
 
 - Nelson confirmed Owner login works on the production URL.
 - Earlier deployment served successfully despite a skipped migration hook. This could appear as broken/blank data screens; the readiness pass adds a fail-closed startup migration guard.
+- Live authenticated CRM, reporting, warranty and dashboard API reads returned 200; anonymous internal API requests returned 401. This is an API smoke check, not a visual walkthrough.
 - Settings previously lacked a useful production test result view. The readiness panel now separates configuration, real tests, inbox confirmation and controlled scheduler results.
 
 ## Still to validate live
